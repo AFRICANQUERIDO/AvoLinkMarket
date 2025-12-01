@@ -2,7 +2,7 @@ import { Link, useLocation } from "wouter";
 import { motion } from "framer-motion";
 import { Menu, X, Leaf, TrendingUp, ShoppingBag, Users } from "lucide-react";
 import { useState } from "react";
-import ChatWidget from "./chat-widget";
+import ChatWidget from "@/components/chat-widget";
 
 export function Layout({ children }: { children: React.ReactNode }) {
   const [location] = useLocation();
