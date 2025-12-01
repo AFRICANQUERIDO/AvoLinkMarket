@@ -1,0 +1,278 @@
+import { useState } from "react";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import * as z from "zod";
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { useToast } from "@/hooks/use-toast";
+import { Loader2, CheckCircle } from "lucide-react";
+import { Card, CardContent } from "@/components/ui/card";
+
+const products = [
+  {
+    id: "crude",
+    name: "Crude Avocado Oil",
+    price: "€3.80 - €4.20 / kg",
+    desc: "Unrefined, cold-pressed oil retaining all natural nutrients and characteristic emerald green color.",
+    specs: ["FFA: < 1.0%", "Peroxide: < 10 meq/kg", "Origin: Kenya/Tanzania"],
+    badge: "Best Seller"
+  },
+  {
+    id: "virgin",
+    name: "Extra Virgin Avocado Oil",
+    price: "€8.50 - €9.50 / kg",
+    desc: "Premium food-grade oil produced from high-quality Hass avocados. Perfect for culinary applications.",
+    specs: ["FFA: < 0.5%", "Cold Pressed", "Emerald Green"],
+    badge: "Premium"
+  },
+  {
+    id: "refined",
+    name: "Refined Avocado Oil",
+    price: "€4.90 - €5.50 / kg",
+    desc: "Bleached and deodorized oil suitable for cosmetics and high-heat cooking. Neutral color and scent.",
+    specs: ["FFA: < 0.1%", "Odorless", "Pale Yellow"],
+    badge: "Versatile"
+  }
+];
+
+const formSchema = z.object({
+  name: z.string().min(2, "Name is required"),
+  company: z.string().min(2, "Company name is required"),
+  email: z.string().email("Invalid email address"),
+  product: z.string().min(1, "Please select a product"),
+  quantity: z.string().min(1, "Estimated quantity is required"),
+  message: z.string().optional(),
+});
+
+export default function Products() {
+  const { toast } = useToast();
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const form = useForm<z.infer<typeof formSchema>>({
+    resolver: zodResolver(formSchema),
+    defaultValues: {
+      name: "",
+      company: "",
+      email: "",
+      product: "",
+      quantity: "",
+      message: "",
+    },
+  });
+
+  function onSubmit(values: z.infer<typeof formSchema>) {
+    setIsSubmitting(true);
+    // Mock API call
+    setTimeout(() => {
+      setIsSubmitting(false);
+      toast({
+        title: "Enquiry Sent Successfully",
+        description: "We have received your request and will contact you within 24 hours with a custom quote.",
+      });
+      form.reset();
+    }, 1500);
+  }
+
+  return (
+    <div className="bg-background py-16 min-h-screen">
+      <div className="container mx-auto px-4">
+        <div className="text-center mb-16">
+          <h1 className="font-heading text-4xl md:text-5xl font-bold text-primary mb-4">Our Product Catalogue</h1>
+          <p className="text-muted-foreground text-lg max-w-2xl mx-auto">
+            Sourced directly from verified processors. All products undergo rigorous quality testing before shipment.
+          </p>
+        </div>
+
+        <div className="grid lg:grid-cols-3 gap-8 mb-20">
+          {products.map((product) => (
+            <div key={product.id} className="bg-white rounded-2xl shadow-sm border border-border overflow-hidden hover:shadow-md transition-shadow flex flex-col">
+              <div className="bg-muted/30 p-8 flex items-center justify-center h-48 relative">
+                {product.badge && (
+                  <span className="absolute top-4 right-4 bg-secondary text-secondary-foreground text-xs font-bold px-3 py-1 rounded-full uppercase tracking-wide">
+                    {product.badge}
+                  </span>
+                )}
+                {/* Placeholder for specific product image - could use generated ones or icons */}
+                <div className={`w-32 h-32 rounded-full flex items-center justify-center text-4xl font-heading font-bold shadow-inner ${
+                  product.id === 'crude' ? 'bg-green-800 text-green-900' : 
+                  product.id === 'virgin' ? 'bg-green-600 text-green-800' : 'bg-yellow-100 text-yellow-600'
+                }`}>
+                   Oil
+                </div>
+              </div>
+              <div className="p-6 flex-grow flex flex-col">
+                <h3 className="font-heading text-2xl font-bold text-primary mb-2">{product.name}</h3>
+                <p className="text-2xl font-bold text-secondary mb-4">{product.price}</p>
+                <p className="text-muted-foreground text-sm mb-6 flex-grow">{product.desc}</p>
+                
+                <div className="space-y-2 mb-6">
+                  {product.specs.map((spec, i) => (
+                    <div key={i} className="flex items-center gap-2 text-xs text-foreground/70 font-medium">
+                      <CheckCircle size={14} className="text-primary" /> {spec}
+                    </div>
+                  ))}
+                </div>
+                
+                <Button 
+                  className="w-full bg-primary hover:bg-primary/90"
+                  onClick={() => form.setValue('product', product.name)}
+                >
+                  Request Quote
+                </Button>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* Enquiry Form Section */}
+        <div className="max-w-4xl mx-auto bg-white rounded-3xl shadow-xl overflow-hidden border border-border">
+          <div className="grid md:grid-cols-2">
+            <div className="bg-primary p-10 text-white flex flex-col justify-center">
+              <h3 className="font-heading text-3xl font-bold mb-4">Get a Custom Quote</h3>
+              <p className="text-white/80 mb-8">
+                Tell us your requirements and we'll connect you with the best processor for your needs. We handle the logistics, quality checks, and paperwork.
+              </p>
+              <ul className="space-y-4">
+                <li className="flex items-center gap-3">
+                  <div className="w-8 h-8 rounded-full bg-secondary/20 flex items-center justify-center text-secondary">✓</div>
+                  <span>Response within 24 hours</span>
+                </li>
+                <li className="flex items-center gap-3">
+                  <div className="w-8 h-8 rounded-full bg-secondary/20 flex items-center justify-center text-secondary">✓</div>
+                  <span>Competitive market rates</span>
+                </li>
+                <li className="flex items-center gap-3">
+                  <div className="w-8 h-8 rounded-full bg-secondary/20 flex items-center justify-center text-secondary">✓</div>
+                  <span>Sample shipping available</span>
+                </li>
+              </ul>
+            </div>
+
+            <div className="p-10">
+              <Form {...form}>
+                <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+                  <FormField
+                    control={form.control}
+                    name="name"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Full Name</FormLabel>
+                        <FormControl>
+                          <Input placeholder="John Doe" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  
+                  <div className="grid grid-cols-2 gap-4">
+                    <FormField
+                      control={form.control}
+                      name="email"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Email</FormLabel>
+                          <FormControl>
+                            <Input placeholder="john@company.com" {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name="company"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Company</FormLabel>
+                          <FormControl>
+                            <Input placeholder="Company Ltd" {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <FormField
+                      control={form.control}
+                      name="product"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Product Interest</FormLabel>
+                          <Select onValueChange={field.onChange} defaultValue={field.value} value={field.value}>
+                            <FormControl>
+                              <SelectTrigger>
+                                <SelectValue placeholder="Select product" />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              <SelectItem value="Crude Avocado Oil">Crude Avocado Oil</SelectItem>
+                              <SelectItem value="Extra Virgin Avocado Oil">Extra Virgin Avocado Oil</SelectItem>
+                              <SelectItem value="Refined Avocado Oil">Refined Avocado Oil</SelectItem>
+                            </SelectContent>
+                          </Select>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name="quantity"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Est. Quantity</FormLabel>
+                          <Select onValueChange={field.onChange} defaultValue={field.value}>
+                            <FormControl>
+                              <SelectTrigger>
+                                <SelectValue placeholder="Select quantity" />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              <SelectItem value="Sample (< 5kg)">Sample (&lt; 5kg)</SelectItem>
+                              <SelectItem value="Small (100kg - 1 Ton)">Small (100kg - 1 Ton)</SelectItem>
+                              <SelectItem value="Medium (1 Ton - 10 Tons)">Medium (1 Ton - 10 Tons)</SelectItem>
+                              <SelectItem value="Large (10 Tons+)">Large (10 Tons+)</SelectItem>
+                            </SelectContent>
+                          </Select>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+
+                  <FormField
+                    control={form.control}
+                    name="message"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Additional Details</FormLabel>
+                        <FormControl>
+                          <Textarea 
+                            placeholder="Specific requirements, destination port, packaging needs..." 
+                            className="resize-none h-24" 
+                            {...field} 
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <Button type="submit" className="w-full bg-primary hover:bg-primary/90 text-lg h-12" disabled={isSubmitting}>
+                    {isSubmitting ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Sending...</> : "Send Enquiry"}
+                  </Button>
+                </form>
+              </Form>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
