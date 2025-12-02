@@ -1,6 +1,6 @@
 import { Link, useLocation } from "wouter";
 import { motion } from "framer-motion";
-import { Menu, X, Leaf, TrendingUp, ShoppingBag, Users } from "lucide-react";
+import { Menu, X, Leaf } from "lucide-react";
 import { useState } from "react";
 import ChatWidget from "@/components/chat-widget";
 
@@ -32,33 +32,34 @@ export function Layout({ children }: { children: React.ReactNode }) {
       <header className="sticky top-0 z-50 bg-background/80 backdrop-blur-md border-b border-border/40">
         <div className="container mx-auto px-4 h-20 flex items-center justify-between">
           {/* Logo */}
-          <Link href="/">
-            <a className="flex items-center gap-2 group cursor-pointer">
-              <div className="bg-primary text-white p-2 rounded-lg group-hover:rotate-12 transition-transform duration-300">
-                <Leaf size={24} fill="currentColor" />
-              </div>
-              <div className="flex flex-col">
-                <span className="font-heading text-xl font-bold leading-none tracking-tight text-primary">AvoTrade</span>
-                <span className="text-[10px] uppercase tracking-widest text-muted-foreground">Global Linkages</span>
-              </div>
-            </a>
+          <Link href="/" className="flex items-center gap-2 group cursor-pointer">
+            <div className="bg-primary text-white p-2 rounded-lg group-hover:rotate-12 transition-transform duration-300">
+              <Leaf size={24} fill="currentColor" />
+            </div>
+            <div className="flex flex-col">
+              <span className="font-heading text-xl font-bold leading-none tracking-tight text-primary">AvoTrade</span>
+              <span className="text-[10px] uppercase tracking-widest text-muted-foreground">Global Linkages</span>
+            </div>
           </Link>
 
           {/* Desktop Nav */}
           <nav className="hidden md:flex items-center gap-8">
             {navItems.map((item) => (
-              <Link key={item.path} href={item.path}>
-                <a className={`text-sm font-medium transition-colors hover:text-secondary ${
+              <Link 
+                key={item.path} 
+                href={item.path}
+                className={`text-sm font-medium transition-colors hover:text-secondary ${
                   location === item.path ? "text-primary font-semibold" : "text-muted-foreground"
-                }`}>
-                  {item.label}
-                </a>
+                }`}
+              >
+                {item.label}
               </Link>
             ))}
-            <Link href="/products">
-              <a className="bg-primary text-white px-5 py-2.5 rounded-full text-sm font-medium hover:bg-primary/90 transition-all hover:shadow-lg hover:shadow-primary/20">
-                Request Quote
-              </a>
+            <Link 
+              href="/products"
+              className="bg-primary text-white px-5 py-2.5 rounded-full text-sm font-medium hover:bg-primary/90 transition-all hover:shadow-lg hover:shadow-primary/20"
+            >
+              Request Quote
             </Link>
           </nav>
 
@@ -80,15 +81,15 @@ export function Layout({ children }: { children: React.ReactNode }) {
           >
             <div className="flex flex-col p-4 gap-4">
               {navItems.map((item) => (
-                <Link key={item.path} href={item.path}>
-                  <a 
-                    onClick={() => setIsMobileMenuOpen(false)}
-                    className={`text-lg font-medium ${
-                      location === item.path ? "text-primary" : "text-muted-foreground"
-                    }`}
-                  >
-                    {item.label}
-                  </a>
+                <Link 
+                  key={item.path} 
+                  href={item.path}
+                  onClick={() => setIsMobileMenuOpen(false)}
+                  className={`text-lg font-medium ${
+                    location === item.path ? "text-primary" : "text-muted-foreground"
+                  }`}
+                >
+                  {item.label}
                 </Link>
               ))}
             </div>
@@ -119,20 +120,20 @@ export function Layout({ children }: { children: React.ReactNode }) {
             <div>
               <h4 className="font-heading text-lg mb-4 text-secondary">Products</h4>
               <ul className="space-y-2 text-sm text-primary-foreground/70">
-                <li><a href="#" className="hover:text-white">Crude Avocado Oil</a></li>
-                <li><a href="#" className="hover:text-white">Extra Virgin Oil</a></li>
-                <li><a href="#" className="hover:text-white">Refined Oil</a></li>
-                <li><a href="#" className="hover:text-white">Organic Cosmetics Base</a></li>
+                <li><Link href="/products" className="hover:text-white">Crude Avocado Oil</Link></li>
+                <li><Link href="/products" className="hover:text-white">Extra Virgin Oil</Link></li>
+                <li><Link href="/products" className="hover:text-white">Refined Oil</Link></li>
+                <li><Link href="/products" className="hover:text-white">Organic Cosmetics Base</Link></li>
               </ul>
             </div>
 
             <div>
               <h4 className="font-heading text-lg mb-4 text-secondary">Company</h4>
               <ul className="space-y-2 text-sm text-primary-foreground/70">
-                <li><a href="#" className="hover:text-white">About Us</a></li>
-                <li><a href="#" className="hover:text-white">Processors</a></li>
-                <li><a href="#" className="hover:text-white">Market Reports</a></li>
-                <li><a href="#" className="hover:text-white">Contact</a></li>
+                <li><Link href="/" className="hover:text-white">About Us</Link></li>
+                <li><Link href="/market" className="hover:text-white">Processors</Link></li>
+                <li><Link href="/market" className="hover:text-white">Market Reports</Link></li>
+                <li><Link href="/products" className="hover:text-white">Contact</Link></li>
               </ul>
             </div>
 

@@ -75,7 +75,7 @@ export default function Products() {
       
       toast({
         title: "Enquiry Sent Successfully! ✅",
-        description: `We've received your request and sent a notification to ${process.env.ADMIN_EMAIL || 'our team'}. You'll hear back within 24 hours.`,
+        description: "We've received your request and our team has been notified. You'll hear back within 24 hours.",
       });
       form.reset();
     } catch (error) {
