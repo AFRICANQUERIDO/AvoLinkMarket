@@ -6,11 +6,9 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
-import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2, CheckCircle } from "lucide-react";
-import { Card, CardContent } from "@/components/ui/card";
 
 const products = [
   {
@@ -64,17 +62,31 @@ export default function Products() {
     },
   });
 
-  function onSubmit(values: z.infer<typeof formSchema>) {
+  async function onSubmit(values: z.infer<typeof formSchema>) {
     setIsSubmitting(true);
-    // Mock API call
-    setTimeout(() => {
-      setIsSubmitting(false);
+    try {
+      const response = await fetch('/api/enquiries', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(values),
+      });
+      
+      if (!response.ok) throw new Error('Failed to submit enquiry');
+      
       toast({
-        title: "Enquiry Sent Successfully",
-        description: "We have received your request and will contact you within 24 hours with a custom quote.",
+        title: "Enquiry Sent Successfully! ✅",
+        description: `We've received your request and sent a notification to ${process.env.ADMIN_EMAIL || 'our team'}. You'll hear back within 24 hours.`,
       });
       form.reset();
-    }, 1500);
+    } catch (error) {
+      toast({
+        title: "Submission Failed",
+        description: "There was an error submitting your enquiry. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
   }
 
   return (
@@ -96,7 +108,6 @@ export default function Products() {
                     {product.badge}
                   </span>
                 )}
-                {/* Placeholder for specific product image - could use generated ones or icons */}
                 <div className={`w-32 h-32 rounded-full flex items-center justify-center text-4xl font-heading font-bold shadow-inner ${
                   product.id === 'crude' ? 'bg-green-800 text-green-900' : 
                   product.id === 'virgin' ? 'bg-green-600 text-green-800' : 'bg-yellow-100 text-yellow-600'
@@ -119,7 +130,11 @@ export default function Products() {
                 
                 <Button 
                   className="w-full bg-primary hover:bg-primary/90"
-                  onClick={() => form.setValue('product', product.name)}
+                  onClick={() => {
+                    form.setValue('product', product.name);
+                    document.getElementById('enquiry-form')?.scrollIntoView({ behavior: 'smooth' });
+                  }}
+                  data-testid={`button-request-quote-${product.id}`}
                 >
                   Request Quote
                 </Button>
@@ -129,7 +144,7 @@ export default function Products() {
         </div>
 
         {/* Enquiry Form Section */}
-        <div className="max-w-4xl mx-auto bg-white rounded-3xl shadow-xl overflow-hidden border border-border">
+        <div id="enquiry-form" className="max-w-4xl mx-auto bg-white rounded-3xl shadow-xl overflow-hidden border border-border">
           <div className="grid md:grid-cols-2">
             <div className="bg-primary p-10 text-white flex flex-col justify-center">
               <h3 className="font-heading text-3xl font-bold mb-4">Get a Custom Quote</h3>
@@ -162,7 +177,7 @@ export default function Products() {
                       <FormItem>
                         <FormLabel>Full Name</FormLabel>
                         <FormControl>
-                          <Input placeholder="John Doe" {...field} />
+                          <Input placeholder="John Doe" {...field} data-testid="input-name" />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -177,7 +192,7 @@ export default function Products() {
                         <FormItem>
                           <FormLabel>Email</FormLabel>
                           <FormControl>
-                            <Input placeholder="john@company.com" {...field} />
+                            <Input placeholder="john@company.com" {...field} data-testid="input-email" />
                           </FormControl>
                           <FormMessage />
                         </FormItem>
@@ -190,7 +205,7 @@ export default function Products() {
                         <FormItem>
                           <FormLabel>Company</FormLabel>
                           <FormControl>
-                            <Input placeholder="Company Ltd" {...field} />
+                            <Input placeholder="Company Ltd" {...field} data-testid="input-company" />
                           </FormControl>
                           <FormMessage />
                         </FormItem>
@@ -207,7 +222,7 @@ export default function Products() {
                           <FormLabel>Product Interest</FormLabel>
                           <Select onValueChange={field.onChange} defaultValue={field.value} value={field.value}>
                             <FormControl>
-                              <SelectTrigger>
+                              <SelectTrigger data-testid="select-product">
                                 <SelectValue placeholder="Select product" />
                               </SelectTrigger>
                             </FormControl>
@@ -229,7 +244,7 @@ export default function Products() {
                           <FormLabel>Est. Quantity</FormLabel>
                           <Select onValueChange={field.onChange} defaultValue={field.value}>
                             <FormControl>
-                              <SelectTrigger>
+                              <SelectTrigger data-testid="select-quantity">
                                 <SelectValue placeholder="Select quantity" />
                               </SelectTrigger>
                             </FormControl>
@@ -256,7 +271,8 @@ export default function Products() {
                           <Textarea 
                             placeholder="Specific requirements, destination port, packaging needs..." 
                             className="resize-none h-24" 
-                            {...field} 
+                            {...field}
+                            data-testid="textarea-message"
                           />
                         </FormControl>
                         <FormMessage />
@@ -264,7 +280,12 @@ export default function Products() {
                     )}
                   />
 
-                  <Button type="submit" className="w-full bg-primary hover:bg-primary/90 text-lg h-12" disabled={isSubmitting}>
+                  <Button 
+                    type="submit" 
+                    className="w-full bg-primary hover:bg-primary/90 text-lg h-12" 
+                    disabled={isSubmitting}
+                    data-testid="button-submit-enquiry"
+                  >
                     {isSubmitting ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Sending...</> : "Send Enquiry"}
                   </Button>
                 </form>

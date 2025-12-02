@@ -9,8 +9,11 @@ import Products from "@/pages/products";
 import Market from "@/pages/market";
 import Admin from "@/pages/admin";
 import { Layout } from "@/components/layout";
+import { usePageTracking } from "@/hooks/use-page-tracking";
 
 function Router() {
+  usePageTracking();
+  
   return (
     <Layout>
       <Switch>
