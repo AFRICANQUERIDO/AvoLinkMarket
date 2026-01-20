@@ -19,12 +19,14 @@ export async function registerRoutes(
       const enquiry = await storage.createEnquiry(data);
       
       // Log email notification
+      const subjectPrefix = data.type === 'buyer' ? 'BUYER ENQUIRY' : 'SELLER ENQUIRY';
       console.log(`\n📧 NEW ${data.type.toUpperCase()} ENQUIRY`);
       console.log('═══════════════════════════════════════');
       console.log(`To: ${process.env.ADMIN_EMAIL}`);
       console.log(`From: ${data.email}`);
-      console.log(`Subject: ${data.type === 'buyer' ? 'New Product Enquiry' : 'New Seller/Processor Registration'} - ${data.name}`);
+      console.log(`Subject: [${subjectPrefix}] ${data.type === 'buyer' ? 'New Product Enquiry' : 'New Seller/Processor Registration'} - ${data.name}`);
       console.log('───────────────────────────────────────');
+      console.log(`Role: ${data.type.toUpperCase()}`);
       console.log(`Company: ${data.company}`);
       console.log(`Contact: ${data.name}`);
       console.log(`Email: ${data.email}`);

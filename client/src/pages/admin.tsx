@@ -119,7 +119,16 @@ export default function Admin() {
                       </div>
                       <div className="flex-grow min-w-0">
                         <div className="flex justify-between items-start mb-1">
-                          <h4 className="font-bold text-sm" data-testid={`text-company-${enq.id}`}>{enq.company}</h4>
+                          <div className="flex items-center gap-2">
+                            <h4 className="font-bold text-sm" data-testid={`text-company-${enq.id}`}>{enq.company}</h4>
+                            <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                              enq.type === 'seller' 
+                                ? 'bg-amber-100 text-amber-700 border border-amber-200' 
+                                : 'bg-emerald-100 text-emerald-700 border border-emerald-200'
+                            }`}>
+                              {enq.type?.toUpperCase() || 'BUYER'}
+                            </span>
+                          </div>
                           <span className="text-[10px] text-muted-foreground whitespace-nowrap">
                             {new Date(enq.createdAt).toLocaleDateString()}
                           </span>
@@ -128,7 +137,11 @@ export default function Admin() {
                           {enq.name} • {enq.email}
                         </p>
                         <p className="text-sm mb-2">
-                          <span className="font-semibold">{enq.product}</span> • {enq.quantity}
+                          {enq.type === 'seller' ? (
+                            <span className="font-semibold text-amber-700">Processor Enquiry</span>
+                          ) : (
+                            <><span className="font-semibold">{enq.product}</span> • {enq.quantity}</>
+                          )}
                         </p>
                         {enq.message && (
                           <p className="text-xs text-muted-foreground italic mb-2">"{enq.message}"</p>
