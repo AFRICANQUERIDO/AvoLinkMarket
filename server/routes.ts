@@ -22,17 +22,17 @@ export async function registerRoutes(
       console.log(`\n📧 NEW ${data.type.toUpperCase()} ENQUIRY`);
       console.log('═══════════════════════════════════════');
       console.log(`To: ${process.env.ADMIN_EMAIL}`);
-      console.log(`From: ${enquiry.email}`);
-      console.log(`Subject: ${data.type === 'buyer' ? 'New Product Enquiry' : 'New Seller/Processor Registration'} - ${enquiry.name}`);
+      console.log(`From: ${data.email}`);
+      console.log(`Subject: ${data.type === 'buyer' ? 'New Product Enquiry' : 'New Seller/Processor Registration'} - ${data.name}`);
       console.log('───────────────────────────────────────');
-      console.log(`Company: ${enquiry.company}`);
-      console.log(`Contact: ${enquiry.name}`);
-      console.log(`Email: ${enquiry.email}`);
+      console.log(`Company: ${data.company}`);
+      console.log(`Contact: ${data.name}`);
+      console.log(`Email: ${data.email}`);
       if (data.type === 'buyer') {
-        console.log(`Product: ${enquiry.product || 'N/A'}`);
-        console.log(`Quantity: ${enquiry.quantity || 'N/A'}`);
+        console.log(`Product: ${data.product || 'N/A'}`);
+        console.log(`Quantity: ${data.quantity || 'N/A'}`);
       }
-      console.log(`Message/Details: ${enquiry.message || 'N/A'}`);
+      console.log(`Message/Details: ${data.message || 'N/A'}`);
       console.log('═══════════════════════════════════════\n');
       
       res.json({ success: true, enquiry });
