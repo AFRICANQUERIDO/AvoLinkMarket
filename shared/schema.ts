@@ -14,8 +14,9 @@ export const enquiries = pgTable("enquiries", {
   name: text("name").notNull(),
   email: text("email").notNull(),
   company: text("company").notNull(),
-  product: text("product").notNull(),
-  quantity: text("quantity").notNull(),
+  type: text("type").notNull().default("buyer"), // 'buyer' or 'seller'
+  product: text("product"),
+  quantity: text("quantity"),
   message: text("message"),
   status: text("status").notNull().default("new"),
   createdAt: timestamp("created_at").defaultNow().notNull(),

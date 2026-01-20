@@ -15,19 +15,21 @@ export async function registerRoutes(
       const data = insertEnquirySchema.parse(req.body);
       const enquiry = await storage.createEnquiry(data);
       
-      // Log email notification (replace with actual email service later)
-      console.log('\n📧 NEW ENQUIRY NOTIFICATION');
+      // Log email notification
+      console.log(`\n📧 NEW ${data.type.toUpperCase()} ENQUIRY`);
       console.log('═══════════════════════════════════════');
       console.log(`To: ${process.env.ADMIN_EMAIL}`);
       console.log(`From: ${enquiry.email}`);
-      console.log(`Subject: New Product Enquiry - ${enquiry.product}`);
+      console.log(`Subject: ${data.type === 'buyer' ? 'New Product Enquiry' : 'New Seller/Processor Registration'} - ${enquiry.name}`);
       console.log('───────────────────────────────────────');
       console.log(`Company: ${enquiry.company}`);
       console.log(`Contact: ${enquiry.name}`);
       console.log(`Email: ${enquiry.email}`);
-      console.log(`Product: ${enquiry.product}`);
-      console.log(`Quantity: ${enquiry.quantity}`);
-      console.log(`Message: ${enquiry.message || 'N/A'}`);
+      if (data.type === 'buyer') {
+        console.log(`Product: ${enquiry.product}`);
+        console.log(`Quantity: ${enquiry.quantity}`);
+      }
+      console.log(`Message/Details: ${enquiry.message || 'N/A'}`);
       console.log('═══════════════════════════════════════\n');
       
       res.json({ success: true, enquiry });

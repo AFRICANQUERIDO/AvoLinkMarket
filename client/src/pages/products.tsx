@@ -8,6 +8,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Loader2, CheckCircle } from "lucide-react";
 
 const products = [
@@ -45,7 +46,8 @@ const products = [
   }
 ];
 
-const formSchema = z.object({
+const buyerSchema = z.object({
+  type: z.literal("buyer"),
   name: z.string().min(2, "Name is required"),
   company: z.string().min(2, "Company name is required"),
   email: z.string().email("Invalid email address"),
@@ -54,13 +56,25 @@ const formSchema = z.object({
   message: z.string().optional(),
 });
 
+const sellerSchema = z.object({
+  type: z.literal("seller"),
+  name: z.string().min(2, "Name is required"),
+  company: z.string().min(2, "Company name is required"),
+  email: z.string().email("Invalid email address"),
+  message: z.string().min(10, "Please provide some details about your production capacity"),
+});
+
+const formSchema = z.discriminatedUnion("type", [buyerSchema, sellerSchema]);
+
 export default function Products() {
   const { toast } = useToast();
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [activeTab, setActiveTab] = useState<"buyer" | "seller">("buyer");
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
+      type: "buyer",
       name: "",
       company: "",
       email: "",
@@ -85,7 +99,15 @@ export default function Products() {
         title: "Enquiry Sent Successfully! ✅",
         description: "We've received your request and our team has been notified. You'll hear back within 24 hours.",
       });
-      form.reset();
+      form.reset({
+        type: activeTab,
+        name: "",
+        company: "",
+        email: "",
+        product: "",
+        quantity: "",
+        message: "",
+      });
     } catch (error) {
       toast({
         title: "Submission Failed",
@@ -177,6 +199,22 @@ export default function Products() {
             </div>
 
             <div className="p-10">
+              <Tabs 
+                defaultValue="buyer" 
+                value={activeTab} 
+                onValueChange={(v) => {
+                  const type = v as "buyer" | "seller";
+                  setActiveTab(type);
+                  form.setValue("type", type);
+                }}
+                className="mb-6"
+              >
+                <TabsList className="grid w-full grid-cols-2">
+                  <TabsTrigger value="buyer">I am a Buyer</TabsTrigger>
+                  <TabsTrigger value="seller">I am a Seller</TabsTrigger>
+                </TabsList>
+              </Tabs>
+
               <Form {...form}>
                 <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
                   <FormField
@@ -222,64 +260,68 @@ export default function Products() {
                     />
                   </div>
 
-                  <div className="grid grid-cols-2 gap-4">
-                    <FormField
-                      control={form.control}
-                      name="product"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Product Interest</FormLabel>
-                          <Select onValueChange={field.onChange} defaultValue={field.value} value={field.value}>
-                            <FormControl>
-                              <SelectTrigger data-testid="select-product">
-                                <SelectValue placeholder="Select product" />
-                              </SelectTrigger>
-                            </FormControl>
-                            <SelectContent>
-                              <SelectItem value="Crude Avocado Oil">Crude Avocado Oil</SelectItem>
-                              <SelectItem value="Extra Virgin Avocado Oil">Extra Virgin Avocado Oil</SelectItem>
-                              <SelectItem value="Refined Avocado Oil">Refined Avocado Oil</SelectItem>
-                              <SelectItem value="Fresh Avocado Exports">Fresh Avocado Exports</SelectItem>
-                            </SelectContent>
-                          </Select>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    <FormField
-                      control={form.control}
-                      name="quantity"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Est. Quantity</FormLabel>
-                          <Select onValueChange={field.onChange} defaultValue={field.value}>
-                            <FormControl>
-                              <SelectTrigger data-testid="select-quantity">
-                                <SelectValue placeholder="Select quantity" />
-                              </SelectTrigger>
-                            </FormControl>
-                            <SelectContent>
-                              <SelectItem value="Sample (< 5kg)">Sample (&lt; 5kg)</SelectItem>
-                              <SelectItem value="Small (100kg - 1 Ton)">Small (100kg - 1 Ton)</SelectItem>
-                              <SelectItem value="Medium (1 Ton - 10 Tons)">Medium (1 Ton - 10 Tons)</SelectItem>
-                              <SelectItem value="Large (10 Tons+)">Large (10 Tons+)</SelectItem>
-                            </SelectContent>
-                          </Select>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                  </div>
+                  {activeTab === "buyer" && (
+                    <div className="grid grid-cols-2 gap-4">
+                      <FormField
+                        control={form.control}
+                        name="product"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Product Interest</FormLabel>
+                            <Select onValueChange={field.onChange} defaultValue={field.value} value={field.value}>
+                              <FormControl>
+                                <SelectTrigger data-testid="select-product">
+                                  <SelectValue placeholder="Select product" />
+                                </SelectTrigger>
+                              </FormControl>
+                              <SelectContent>
+                                <SelectItem value="Crude Avocado Oil">Crude Avocado Oil</SelectItem>
+                                <SelectItem value="Extra Virgin Avocado Oil">Extra Virgin Avocado Oil</SelectItem>
+                                <SelectItem value="Refined Avocado Oil">Refined Avocado Oil</SelectItem>
+                                <SelectItem value="Fresh Avocado Exports">Fresh Avocado Exports</SelectItem>
+                              </SelectContent>
+                            </Select>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={form.control}
+                        name="quantity"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Est. Quantity</FormLabel>
+                            <Select onValueChange={field.onChange} defaultValue={field.value}>
+                              <FormControl>
+                                <SelectTrigger data-testid="select-quantity">
+                                  <SelectValue placeholder="Select quantity" />
+                                </SelectTrigger>
+                              </FormControl>
+                              <SelectContent>
+                                <SelectItem value="Sample (< 5kg)">Sample (&lt; 5kg)</SelectItem>
+                                <SelectItem value="Small (100kg - 1 Ton)">Small (100kg - 1 Ton)</SelectItem>
+                                <SelectItem value="Medium (1 Ton - 10 Tons)">Medium (1 Ton - 10 Tons)</SelectItem>
+                                <SelectItem value="Large (10 Tons+)">Large (10 Tons+)</SelectItem>
+                                <SelectItem value="Container (20ft)">20ft Container (approx 20 Tons)</SelectItem>
+                                <SelectItem value="Container (40ft)">40ft Container (approx 40 Tons)</SelectItem>
+                              </SelectContent>
+                            </Select>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    </div>
+                  )}
 
                   <FormField
                     control={form.control}
                     name="message"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Additional Details</FormLabel>
+                        <FormLabel>{activeTab === "buyer" ? "Additional Details" : "Production Capacity & Origin"}</FormLabel>
                         <FormControl>
                           <Textarea 
-                            placeholder="Specific requirements, destination port, packaging needs..." 
+                            placeholder={activeTab === "buyer" ? "Specific requirements, destination port, packaging needs..." : "Tell us about your processing capacity, location, and certification status..."}
                             className="resize-none h-24" 
                             {...field}
                             data-testid="textarea-message"
