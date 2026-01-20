@@ -34,6 +34,14 @@ const products = [
     desc: "Bleached and deodorized oil suitable for cosmetics and high-heat cooking. Neutral color and scent.",
     specs: ["FFA: < 0.1%", "Odorless", "Pale Yellow"],
     badge: "Versatile"
+  },
+  {
+    id: "fresh",
+    name: "Fresh Avocado Exports",
+    price: "Market Price (Inquire for Daily Rates)",
+    desc: "Premium quality fresh avocados (Hass & Fuerte) sourced from verified growers across East Africa. Global GAP certified.",
+    specs: ["Origin: Kenya, Tanzania, Uganda", "Size: 12 - 24 count", "Global GAP Certified"],
+    badge: "Fresh"
   }
 ];
 
@@ -99,7 +107,7 @@ export default function Products() {
           </p>
         </div>
 
-        <div className="grid lg:grid-cols-3 gap-8 mb-20">
+        <div className="grid lg:grid-cols-2 xl:grid-cols-4 gap-8 mb-20">
           {products.map((product) => (
             <div key={product.id} className="bg-white rounded-2xl shadow-sm border border-border overflow-hidden hover:shadow-md transition-shadow flex flex-col">
               <div className="bg-muted/30 p-8 flex items-center justify-center h-48 relative">
@@ -110,9 +118,10 @@ export default function Products() {
                 )}
                 <div className={`w-32 h-32 rounded-full flex items-center justify-center text-4xl font-heading font-bold shadow-inner ${
                   product.id === 'crude' ? 'bg-green-800 text-green-900' : 
-                  product.id === 'virgin' ? 'bg-green-600 text-green-800' : 'bg-yellow-100 text-yellow-600'
+                  product.id === 'virgin' ? 'bg-green-600 text-green-800' : 
+                  product.id === 'fresh' ? 'bg-emerald-100 text-emerald-700' : 'bg-yellow-100 text-yellow-600'
                 }`}>
-                   Oil
+                   {product.id === 'fresh' ? '🥑' : 'Oil'}
                 </div>
               </div>
               <div className="p-6 flex-grow flex flex-col">
@@ -230,6 +239,7 @@ export default function Products() {
                               <SelectItem value="Crude Avocado Oil">Crude Avocado Oil</SelectItem>
                               <SelectItem value="Extra Virgin Avocado Oil">Extra Virgin Avocado Oil</SelectItem>
                               <SelectItem value="Refined Avocado Oil">Refined Avocado Oil</SelectItem>
+                              <SelectItem value="Fresh Avocado Exports">Fresh Avocado Exports</SelectItem>
                             </SelectContent>
                           </Select>
                           <FormMessage />
