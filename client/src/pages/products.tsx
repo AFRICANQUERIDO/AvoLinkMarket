@@ -145,49 +145,96 @@ export default function Products() {
           </p>
         </div>
 
-        <div className="grid lg:grid-cols-2 xl:grid-cols-4 gap-8 mb-20">
-          {products.map((product) => (
-            <div key={product.id} className="bg-white rounded-2xl shadow-sm border border-border overflow-hidden hover:shadow-md transition-shadow flex flex-col">
-              <div className="bg-muted/30 p-8 flex items-center justify-center h-48 relative">
-                {product.badge && (
-                  <span className="absolute top-4 right-4 bg-secondary text-secondary-foreground text-xs font-bold px-3 py-1 rounded-full uppercase tracking-wide">
-                    {product.badge}
-                  </span>
-                )}
-                <div className={`w-32 h-32 rounded-full flex items-center justify-center text-4xl font-heading font-bold shadow-inner ${
-                  product.id === 'crude' ? 'bg-green-800 text-green-900' : 
-                  product.id === 'virgin' ? 'bg-green-600 text-green-800' : 
-                  product.id === 'fresh' ? 'bg-emerald-100 text-emerald-700' : 'bg-yellow-100 text-yellow-600'
-                }`}>
-                   {product.id === 'fresh' ? '🥑' : 'Oil'}
+        <div id="avocado-section" className="mb-20">
+          <h2 className="font-heading text-3xl font-bold text-primary mb-8 border-l-4 border-secondary pl-4">Avocado Products</h2>
+          <div className="grid lg:grid-cols-2 xl:grid-cols-4 gap-8">
+            {products.filter(p => !p.id.startsWith('macadamia')).map((product) => (
+              <div key={product.id} className="bg-white rounded-2xl shadow-sm border border-border overflow-hidden hover:shadow-md transition-shadow flex flex-col">
+                <div className="bg-muted/30 p-8 flex items-center justify-center h-48 relative">
+                  {product.badge && (
+                    <span className="absolute top-4 right-4 bg-secondary text-secondary-foreground text-xs font-bold px-3 py-1 rounded-full uppercase tracking-wide">
+                      {product.badge}
+                    </span>
+                  )}
+                  <div className={`w-32 h-32 rounded-full flex items-center justify-center text-4xl font-heading font-bold shadow-inner ${
+                    product.id === 'crude' ? 'bg-green-800 text-green-900' : 
+                    product.id === 'virgin' ? 'bg-green-600 text-green-800' : 
+                    product.id === 'fresh' ? 'bg-emerald-100 text-emerald-700' : 'bg-yellow-100 text-yellow-600'
+                  }`}>
+                     {product.id === 'fresh' ? '🥑' : 'Oil'}
+                  </div>
+                </div>
+                <div className="p-6 flex-grow flex flex-col">
+                  <h3 className="font-heading text-2xl font-bold text-primary mb-2">{product.name}</h3>
+                  <p className="text-2xl font-bold text-secondary mb-4">{product.price}</p>
+                  <p className="text-muted-foreground text-sm mb-6 flex-grow">{product.desc}</p>
+                  
+                  <div className="space-y-2 mb-6">
+                    {product.specs.map((spec, i) => (
+                      <div key={i} className="flex items-center gap-2 text-xs text-foreground/70 font-medium">
+                        <CheckCircle size={14} className="text-primary" /> {spec}
+                      </div>
+                    ))}
+                  </div>
+                  
+                  <Button 
+                    className="w-full bg-primary hover:bg-primary/90"
+                    onClick={() => {
+                      form.setValue('product', product.name);
+                      document.getElementById('enquiry-form')?.scrollIntoView({ behavior: 'smooth' });
+                    }}
+                    data-testid={`button-request-quote-${product.id}`}
+                  >
+                    Request Quote
+                  </Button>
                 </div>
               </div>
-              <div className="p-6 flex-grow flex flex-col">
-                <h3 className="font-heading text-2xl font-bold text-primary mb-2">{product.name}</h3>
-                <p className="text-2xl font-bold text-secondary mb-4">{product.price}</p>
-                <p className="text-muted-foreground text-sm mb-6 flex-grow">{product.desc}</p>
-                
-                <div className="space-y-2 mb-6">
-                  {product.specs.map((spec, i) => (
-                    <div key={i} className="flex items-center gap-2 text-xs text-foreground/70 font-medium">
-                      <CheckCircle size={14} className="text-primary" /> {spec}
-                    </div>
-                  ))}
+            ))}
+          </div>
+        </div>
+
+        <div id="macadamia-section" className="mb-20">
+          <h2 className="font-heading text-3xl font-bold text-primary mb-8 border-l-4 border-amber-500 pl-4">Macadamia Products</h2>
+          <div className="grid lg:grid-cols-2 xl:grid-cols-4 gap-8">
+            {products.filter(p => p.id.startsWith('macadamia')).map((product) => (
+              <div key={product.id} className="bg-white rounded-2xl shadow-sm border border-border overflow-hidden hover:shadow-md transition-shadow flex flex-col">
+                <div className="bg-muted/30 p-8 flex items-center justify-center h-48 relative">
+                  {product.badge && (
+                    <span className="absolute top-4 right-4 bg-secondary text-secondary-foreground text-xs font-bold px-3 py-1 rounded-full uppercase tracking-wide">
+                      {product.badge}
+                    </span>
+                  )}
+                  <div className="w-32 h-32 rounded-full flex items-center justify-center text-4xl font-heading font-bold shadow-inner bg-amber-100 text-amber-700">
+                     Oil
+                  </div>
                 </div>
-                
-                <Button 
-                  className="w-full bg-primary hover:bg-primary/90"
-                  onClick={() => {
-                    form.setValue('product', product.name);
-                    document.getElementById('enquiry-form')?.scrollIntoView({ behavior: 'smooth' });
-                  }}
-                  data-testid={`button-request-quote-${product.id}`}
-                >
-                  Request Quote
-                </Button>
+                <div className="p-6 flex-grow flex flex-col">
+                  <h3 className="font-heading text-2xl font-bold text-primary mb-2">{product.name}</h3>
+                  <p className="text-2xl font-bold text-secondary mb-4">{product.price}</p>
+                  <p className="text-muted-foreground text-sm mb-6 flex-grow">{product.desc}</p>
+                  
+                  <div className="space-y-2 mb-6">
+                    {product.specs.map((spec, i) => (
+                      <div key={i} className="flex items-center gap-2 text-xs text-foreground/70 font-medium">
+                        <CheckCircle size={14} className="text-primary" /> {spec}
+                      </div>
+                    ))}
+                  </div>
+                  
+                  <Button 
+                    className="w-full bg-primary hover:bg-primary/90"
+                    onClick={() => {
+                      form.setValue('product', product.name);
+                      document.getElementById('enquiry-form')?.scrollIntoView({ behavior: 'smooth' });
+                    }}
+                    data-testid={`button-request-quote-${product.id}`}
+                  >
+                    Request Quote
+                  </Button>
+                </div>
               </div>
-            </div>
-          ))}
+            ))}
+          </div>
         </div>
 
         {/* Enquiry Form Section */}

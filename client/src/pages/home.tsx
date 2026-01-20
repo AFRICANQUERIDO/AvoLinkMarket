@@ -38,12 +38,12 @@ export default function Home() {
               Source bulk Crude, Virgin, and Refined Avocado Oil with complete transparency.
             </p>
             <div className="flex flex-col sm:flex-row gap-4 pt-4">
-              <Link href="/products">
+              <Link href="/products#avocado-section">
                 <a className="bg-secondary text-secondary-foreground px-8 py-4 rounded-lg font-bold text-lg flex items-center justify-center gap-2 hover:bg-white transition-colors">
                   Avocado Products <ArrowRight size={20} />
                 </a>
               </Link>
-              <Link href="/products">
+              <Link href="/products#macadamia-section">
                 <a className="bg-transparent border border-white/30 text-white px-8 py-4 rounded-lg font-bold text-lg flex items-center justify-center gap-2 hover:bg-white/10 transition-colors backdrop-blur-sm">
                   Macadamia Products <ArrowRight size={20} />
                 </a>
