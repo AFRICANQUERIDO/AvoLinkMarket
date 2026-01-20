@@ -37,7 +37,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
               <Leaf size={24} fill="currentColor" />
             </div>
             <div className="flex flex-col">
-              <span className="font-heading text-xl font-bold leading-none tracking-tight text-primary">AvoTrade</span>
+              <span className="font-heading text-xl font-bold leading-none tracking-tight text-primary">AvoLink</span>
               <span className="text-[10px] uppercase tracking-widest text-muted-foreground">Global Linkages</span>
             </div>
           </Link>
@@ -139,7 +139,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
 
             <div>
               <h4 className="font-heading text-lg mb-4 text-secondary">Subscribe</h4>
-              <p className="text-xs text-primary-foreground/60 mb-4">Get weekly European market updates.</p>
+              <p className="text-xs text-primary-foreground/60 mb-4">Get weekly market updates.</p>
               <div className="flex gap-2">
                 <input 
                   type="email" 
@@ -153,7 +153,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
             </div>
           </div>
           <div className="border-t border-white/10 pt-8 text-center text-xs text-primary-foreground/40">
-            © 2024 AvoTrade Global Linkages. All rights reserved.
+            © 2025 AvoTrade Global Linkages. All rights reserved.
           </div>
         </div>
       </footer>

@@ -14,7 +14,7 @@ const products = [
   {
     id: "crude",
     name: "Crude Avocado Oil",
-    price: "€3.80 - €4.20 / kg",
+    price: "Ksh .3.80 - Ksh 4.20 / kg",
     desc: "Unrefined, cold-pressed oil retaining all natural nutrients and characteristic emerald green color.",
     specs: ["FFA: < 1.0%", "Peroxide: < 10 meq/kg", "Origin: Kenya/Tanzania"],
     badge: "Best Seller"
@@ -22,7 +22,7 @@ const products = [
   {
     id: "virgin",
     name: "Extra Virgin Avocado Oil",
-    price: "€8.50 - €9.50 / kg",
+    price: "Ksh 8.50 - Ksh 9.50 / kg",
     desc: "Premium food-grade oil produced from high-quality Hass avocados. Perfect for culinary applications.",
     specs: ["FFA: < 0.5%", "Cold Pressed", "Emerald Green"],
     badge: "Premium"
@@ -30,7 +30,7 @@ const products = [
   {
     id: "refined",
     name: "Refined Avocado Oil",
-    price: "€4.90 - €5.50 / kg",
+    price: "Ksh 4.90 - Ksh 5.50 / kg",
     desc: "Bleached and deodorized oil suitable for cosmetics and high-heat cooking. Neutral color and scent.",
     specs: ["FFA: < 0.1%", "Odorless", "Pale Yellow"],
     badge: "Versatile"
