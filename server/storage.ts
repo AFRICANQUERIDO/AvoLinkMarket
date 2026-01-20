@@ -56,8 +56,9 @@ export class DatabaseStorage implements IStorage {
     await db.update(enquiries).set({ status }).where(eq(enquiries.id, id));
   }
 
-  async trackPageVisit(visit: InsertPageVisit): Promise<void> {
-    await db.insert(pageVisits).values(visit);
+ async trackPageVisit(visit: InsertPageVisit): Promise<void> {
+    //await db.insert(pageVisits).values(visit)
+    console.log("Page visit tracked:", visit);
   }
 
   async getPageVisits(days: number = 7): Promise<PageVisit[]> {
