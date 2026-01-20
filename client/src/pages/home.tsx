@@ -40,12 +40,12 @@ export default function Home() {
             <div className="flex flex-col sm:flex-row gap-4 pt-4">
               <Link href="/products">
                 <a className="bg-secondary text-secondary-foreground px-8 py-4 rounded-lg font-bold text-lg flex items-center justify-center gap-2 hover:bg-white transition-colors">
-                  View Products <ArrowRight size={20} />
+                  Avocado Products <ArrowRight size={20} />
                 </a>
               </Link>
-              <Link href="/market">
+              <Link href="/products">
                 <a className="bg-transparent border border-white/30 text-white px-8 py-4 rounded-lg font-bold text-lg flex items-center justify-center gap-2 hover:bg-white/10 transition-colors backdrop-blur-sm">
-                  Market Trends
+                  Macadamia Products <ArrowRight size={20} />
                 </a>
               </Link>
             </div>

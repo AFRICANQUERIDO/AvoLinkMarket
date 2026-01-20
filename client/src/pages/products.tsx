@@ -37,6 +37,22 @@ const products = [
     badge: "Versatile"
   },
   {
+    id: "macadamia_crude",
+    name: "Crude Macadamia Oil",
+    price: "Inquire for Pricing",
+    desc: "Cold-pressed macadamia oil, rich in palmitoleic acid. Excellent for premium cosmetic formulations.",
+    specs: ["Cold Pressed", "High Palmitoleic Acid", "Origin: Kenya/South Africa"],
+    badge: "New"
+  },
+  {
+    id: "macadamia_refined",
+    name: "Refined Macadamia Oil",
+    price: "Inquire for Pricing",
+    desc: "Refined macadamia oil with high smoke point and neutral profile. Ideal for culinary and beauty products.",
+    specs: ["Neutral Scent", "High Stability", "Food & Cosmetic Grade"],
+    badge: "Premium"
+  },
+  {
     id: "fresh",
     name: "Fresh Avocado Exports",
     price: "Market Price (Inquire for Daily Rates)",
@@ -278,6 +294,8 @@ export default function Products() {
                                 <SelectItem value="Crude Avocado Oil">Crude Avocado Oil</SelectItem>
                                 <SelectItem value="Extra Virgin Avocado Oil">Extra Virgin Avocado Oil</SelectItem>
                                 <SelectItem value="Refined Avocado Oil">Refined Avocado Oil</SelectItem>
+                                <SelectItem value="Crude Macadamia Oil">Crude Macadamia Oil</SelectItem>
+                                <SelectItem value="Refined Macadamia Oil">Refined Macadamia Oil</SelectItem>
                                 <SelectItem value="Fresh Avocado Exports">Fresh Avocado Exports</SelectItem>
                               </SelectContent>
                             </Select>
