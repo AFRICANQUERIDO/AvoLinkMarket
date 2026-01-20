@@ -13,6 +13,9 @@ export async function registerRoutes(
   app.post("/api/enquiries", async (req, res) => {
     try {
       const data = insertEnquirySchema.parse(req.body);
+      if (!data.type) {
+        throw new Error("Enquiry type is required");
+      }
       const enquiry = await storage.createEnquiry(data);
       
       // Log email notification
@@ -26,8 +29,8 @@ export async function registerRoutes(
       console.log(`Contact: ${enquiry.name}`);
       console.log(`Email: ${enquiry.email}`);
       if (data.type === 'buyer') {
-        console.log(`Product: ${enquiry.product}`);
-        console.log(`Quantity: ${enquiry.quantity}`);
+        console.log(`Product: ${enquiry.product || 'N/A'}`);
+        console.log(`Quantity: ${enquiry.quantity || 'N/A'}`);
       }
       console.log(`Message/Details: ${enquiry.message || 'N/A'}`);
       console.log('═══════════════════════════════════════\n');
