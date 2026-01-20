@@ -30,9 +30,9 @@ export default function Market() {
       {/* Header */}
       <div className="bg-primary text-white py-20">
         <div className="container mx-auto px-4">
-          <h1 className="font-heading text-4xl md:text-6xl font-bold mb-6">Market Intelligence</h1>
+          <h1 className="font-heading text-4xl md:text-6xl font-bold mb-6">Market News</h1>
           <p className="text-xl text-white/80 max-w-2xl">
-            Weekly updates on European market trends, pricing fluctuations, and supply chain insights for the avocado oil industry.
+            Weekly updates on East Africa market trends, pricing fluctuations, and supply chain insights for the avocado oil industry.
           </p>
         </div>
       </div>
