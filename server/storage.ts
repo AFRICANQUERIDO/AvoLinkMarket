@@ -1,18 +1,25 @@
 import { db } from "../drizzle/db";
 import { users, enquiries, pageVisits } from "@shared/schema";
-import type { User, InsertUser, Enquiry, InsertEnquiry, PageVisit, InsertPageVisit } from "@shared/schema";
+import type {
+  User,
+  InsertUser,
+  Enquiry,
+  InsertEnquiry,
+  PageVisit,
+  InsertPageVisit,
+} from "@shared/schema";
 import { eq, desc, gte, sql } from "drizzle-orm";
 
 export interface IStorage {
   getUser(id: string): Promise<User | undefined>;
   getUserByUsername(username: string): Promise<User | undefined>;
   createUser(user: InsertUser): Promise<User>;
-  
+
   createEnquiry(enquiry: InsertEnquiry): Promise<Enquiry>;
   getEnquiries(limit?: number): Promise<Enquiry[]>;
   getEnquiryById(id: number): Promise<Enquiry | undefined>;
   updateEnquiryStatus(id: number, status: string): Promise<void>;
-  
+
   trackPageVisit(visit: InsertPageVisit): Promise<void>;
   getPageVisits(days?: number): Promise<PageVisit[]>;
   getVisitStats(days?: number): Promise<{
@@ -24,12 +31,20 @@ export interface IStorage {
 
 export class DatabaseStorage implements IStorage {
   async getUser(id: string): Promise<User | undefined> {
-    const result = await db.select().from(users).where(eq(users.id, id)).limit(1);
+    const result = await db
+      .select()
+      .from(users)
+      .where(eq(users.id, id))
+      .limit(1);
     return result[0];
   }
 
   async getUserByUsername(username: string): Promise<User | undefined> {
-    const result = await db.select().from(users).where(eq(users.username, username)).limit(1);
+    const result = await db
+      .select()
+      .from(users)
+      .where(eq(users.username, username))
+      .limit(1);
     return result[0];
   }
 
@@ -44,11 +59,19 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getEnquiries(limit: number = 50): Promise<Enquiry[]> {
-    return await db.select().from(enquiries).orderBy(desc(enquiries.createdAt)).limit(limit);
+    return await db
+      .select()
+      .from(enquiries)
+      .orderBy(desc(enquiries.createdAt))
+      .limit(limit);
   }
 
   async getEnquiryById(id: number): Promise<Enquiry | undefined> {
-    const result = await db.select().from(enquiries).where(eq(enquiries.id, id)).limit(1);
+    const result = await db
+      .select()
+      .from(enquiries)
+      .where(eq(enquiries.id, id))
+      .limit(1);
     return result[0];
   }
 
@@ -56,16 +79,17 @@ export class DatabaseStorage implements IStorage {
     await db.update(enquiries).set({ status }).where(eq(enquiries.id, id));
   }
 
- async trackPageVisit(visit: InsertPageVisit): Promise<void> {
-    //await db.insert(pageVisits).values(visit)
+  async trackPageVisit(visit: InsertPageVisit): Promise<void> {
+    await db.insert(pageVisits).values(visit);
     console.log("Page visit tracked:", visit);
   }
 
   async getPageVisits(days: number = 7): Promise<PageVisit[]> {
     const cutoffDate = new Date();
     cutoffDate.setDate(cutoffDate.getDate() - days);
-    
-    return await db.select()
+
+    return await db
+      .select()
       .from(pageVisits)
       .where(gte(pageVisits.timestamp, cutoffDate))
       .orderBy(desc(pageVisits.timestamp));
@@ -80,10 +104,12 @@ export class DatabaseStorage implements IStorage {
     cutoffDate.setDate(cutoffDate.getDate() - days);
 
     const [visitsResult, enquiriesResult] = await Promise.all([
-      db.select({ count: sql<number>`count(*)` })
+      db
+        .select({ count: sql<number>`count(*)` })
         .from(pageVisits)
         .where(gte(pageVisits.timestamp, cutoffDate)),
-      db.select({ count: sql<number>`count(*)` })
+      db
+        .select({ count: sql<number>`count(*)` })
         .from(enquiries)
         .where(gte(enquiries.createdAt, cutoffDate)),
     ]);
@@ -101,7 +127,10 @@ export class DatabaseStorage implements IStorage {
     return {
       totalVisits: Number(visitsResult[0]?.count || 0),
       totalEnquiries: Number(enquiriesResult[0]?.count || 0),
-      visitsByDay: visitsByDay.map(v => ({ date: v.date, count: Number(v.count) })),
+      visitsByDay: visitsByDay.map((v) => ({
+        date: v.date,
+        count: Number(v.count),
+      })),
     };
   }
 }
