@@ -3,6 +3,11 @@ import { type Server } from "http";
 import { storage } from "./storage";
 import { insertEnquirySchema, insertPageVisitSchema } from "@shared/schema";
 import { z } from "zod";
+import sgMail from "@sendgrid/mail";
+
+if (process.env.SENDGRID_API_KEY) {
+  sgMail.setApiKey(process.env.SENDGRID_API_KEY);
+}
 
 export async function registerRoutes(
   httpServer: Server,
@@ -18,24 +23,68 @@ export async function registerRoutes(
       }
       const enquiry = await storage.createEnquiry(data);
       
-      // Log email notification
+      const adminEmail = process.env.ADMIN_EMAIL || 'janengene12@gmail.com';
       const subjectPrefix = data.type === 'buyer' ? 'BUYER ENQUIRY' : 'SELLER ENQUIRY';
-      console.log(`\n📧 NEW ${data.type.toUpperCase()} ENQUIRY`);
-      console.log('═══════════════════════════════════════');
-      console.log(`To: ${process.env.ADMIN_EMAIL}`);
-      console.log(`From: ${data.email}`);
-      console.log(`Subject: [${subjectPrefix}] ${data.type === 'buyer' ? 'New Product Enquiry' : 'New Seller/Processor Registration'} - ${data.name}`);
-      console.log('───────────────────────────────────────');
-      console.log(`Role: ${data.type.toUpperCase()}`);
-      console.log(`Company: ${data.company}`);
-      console.log(`Contact: ${data.name}`);
-      console.log(`Email: ${data.email}`);
-      if (data.type === 'buyer') {
-        console.log(`Product: ${data.product || 'N/A'}`);
-        console.log(`Quantity: ${data.quantity || 'N/A'}`);
+      const subject = `[${subjectPrefix}] ${data.type === 'buyer' ? 'New Product Enquiry' : 'New Seller/Processor Registration'} - ${data.name}`;
+      
+      const emailHtml = `
+        <div style="font-family: sans-serif; line-height: 1.6; color: #333;">
+          <h2 style="color: #166534; border-bottom: 2px solid #fbbf24; padding-bottom: 10px;">New ${data.type.toUpperCase()} Enquiry</h2>
+          <table style="width: 100%; border-collapse: collapse;">
+            <tr>
+              <td style="padding: 8px; font-weight: bold; width: 150px;">Name:</td>
+              <td style="padding: 8px;">${data.name}</td>
+            </tr>
+            <tr>
+              <td style="padding: 8px; font-weight: bold;">Company:</td>
+              <td style="padding: 8px;">${data.company}</td>
+            </tr>
+            <tr>
+              <td style="padding: 8px; font-weight: bold;">Email:</td>
+              <td style="padding: 8px;">${data.email}</td>
+            </tr>
+            ${data.type === 'buyer' ? `
+            <tr>
+              <td style="padding: 8px; font-weight: bold;">Product:</td>
+              <td style="padding: 8px;">${data.product || 'N/A'}</td>
+            </tr>
+            <tr>
+              <td style="padding: 8px; font-weight: bold;">Quantity:</td>
+              <td style="padding: 8px;">${data.quantity || 'N/A'}</td>
+            </tr>
+            ` : ''}
+            <tr>
+              <td style="padding: 8px; font-weight: bold;">Details:</td>
+              <td style="padding: 8px;">${data.message || 'N/A'}</td>
+            </tr>
+          </table>
+          <p style="margin-top: 20px; font-size: 12px; color: #666;">This enquiry was submitted via the AvoLink Global Marketplace platform.</p>
+        </div>
+      `;
+
+      // Log email notification
+      console.log(`\n📧 SENDING ${data.type.toUpperCase()} ENQUIRY EMAIL TO ${adminEmail}`);
+      
+      if (process.env.SENDGRID_API_KEY) {
+        try {
+          await sgMail.send({
+            to: adminEmail,
+            from: 'noreply@avolink.global', // This should be a verified sender in SendGrid
+            subject: subject,
+            html: emailHtml,
+          });
+          console.log('✅ Email sent successfully via SendGrid');
+        } catch (error) {
+          console.error('❌ SendGrid Error:', error);
+        }
+      } else {
+        console.log('⚠️ SENDGRID_API_KEY not found. Email logged to console only.');
+        console.log('═══════════════════════════════════════');
+        console.log(`Subject: ${subject}`);
+        console.log('───────────────────────────────────────');
+        console.log(emailHtml.replace(/<[^>]*>/g, ''));
+        console.log('═══════════════════════════════════════\n');
       }
-      console.log(`Message/Details: ${data.message || 'N/A'}`);
-      console.log('═══════════════════════════════════════\n');
       
       res.json({ success: true, enquiry });
     } catch (error) {
