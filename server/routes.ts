@@ -3,11 +3,9 @@ import { type Server } from "http";
 import { storage } from "./storage";
 import { insertEnquirySchema, insertPageVisitSchema } from "@shared/schema";
 import { z } from "zod";
-import sgMail from "@sendgrid/mail";
+import { Resend } from 'resend';
 
-if (process.env.SENDGRID_API_KEY) {
-  sgMail.setApiKey(process.env.SENDGRID_API_KEY);
-}
+const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null;
 
 export async function registerRoutes(
   httpServer: Server,
@@ -65,20 +63,20 @@ export async function registerRoutes(
       // Log email notification
       console.log(`\n📧 SENDING ${data.type.toUpperCase()} ENQUIRY EMAIL TO ${adminEmail}`);
       
-      if (process.env.SENDGRID_API_KEY) {
+      if (resend) {
         try {
-          await sgMail.send({
+          await resend.emails.send({
+            from: 'AvoLink Marketplace <onboarding@resend.dev>',
             to: adminEmail,
-            from: 'noreply@avolink.global', // This should be a verified sender in SendGrid
             subject: subject,
             html: emailHtml,
           });
-          console.log('✅ Email sent successfully via SendGrid');
+          console.log('✅ Email sent successfully via Resend');
         } catch (error) {
-          console.error('❌ SendGrid Error:', error);
+          console.error('❌ Resend Error:', error);
         }
       } else {
-        console.log('⚠️ SENDGRID_API_KEY not found. Email logged to console only.');
+        console.log('⚠️ RESEND_API_KEY not found. Email logged to console only.');
         console.log('═══════════════════════════════════════');
         console.log(`Subject: ${subject}`);
         console.log('───────────────────────────────────────');
