@@ -1,138 +1,110 @@
-import { db } from "../drizzle/db";
-import { users, enquiries, pageVisits } from "@shared/schema";
-import type {
-  User,
-  InsertUser,
-  Enquiry,
-  InsertEnquiry,
-  PageVisit,
-  InsertPageVisit,
-} from "@shared/schema";
-import { eq, desc, gte, sql } from "drizzle-orm";
+import { poolPromise } from "./db";
 
+// 1. Update the interface to include the new methods
 export interface IStorage {
-  getUser(id: string): Promise<User | undefined>;
-  getUserByUsername(username: string): Promise<User | undefined>;
-  createUser(user: InsertUser): Promise<User>;
-
-  createEnquiry(enquiry: InsertEnquiry): Promise<Enquiry>;
-  getEnquiries(limit?: number): Promise<Enquiry[]>;
-  getEnquiryById(id: number): Promise<Enquiry | undefined>;
-  updateEnquiryStatus(id: number, status: string): Promise<void>;
-
-  trackPageVisit(visit: InsertPageVisit): Promise<void>;
-  getPageVisits(days?: number): Promise<PageVisit[]>;
-  getVisitStats(days?: number): Promise<{
-    totalVisits: number;
-    totalEnquiries: number;
-    visitsByDay: { date: string; count: number }[];
-  }>;
+  createEnquiry(enquiry: any): Promise<void>;
+  getEnquiries(limit?: number): Promise<any[]>;
+  updateEnquiryStatus(id: number, status: string): Promise<any>; // Added
+  deleteEnquiry(id: number): Promise<void>; // Added
+  trackPageVisit(visit: { path: string }): Promise<void>;
+  getVisitStats(days?: number): Promise<{ totalVisits: number; totalEnquiries: number }>;
 }
 
-export class DatabaseStorage implements IStorage {
-  async getUser(id: string): Promise<User | undefined> {
-    const result = await db
-      .select()
-      .from(users)
-      .where(eq(users.id, id))
-      .limit(1);
-    return result[0];
+export class DatabaseStorageMSSQL implements IStorage {
+
+  async createEnquiry(enquiry: any) {
+    try {
+      const pool = await poolPromise;
+      await pool.request()
+        .input("name", enquiry.name)
+        .input("email", enquiry.email)
+        .input("message", enquiry.message || "")
+        .input("company", enquiry.company)
+        .input("type", enquiry.type)
+        .input("product", enquiry.product || null)
+        .input("quantity", enquiry.quantity || null)
+        .query(`
+          INSERT INTO Enquiries (Name, Email, Message, Company, Type, Product, Quantity, Status, CreatedAt)
+          VALUES (@name, @email, @message, @company, @type, @product, @quantity, 'new', GETDATE())
+        `);
+    } catch (err) {
+      console.error("Database Insert Error:", err);
+      throw err;
+    }
   }
 
-  async getUserByUsername(username: string): Promise<User | undefined> {
-    const result = await db
-      .select()
-      .from(users)
-      .where(eq(users.username, username))
-      .limit(1);
-    return result[0];
+  async getEnquiries(limit = 50) {
+    const pool = await poolPromise;
+    const result = await pool.request()
+      .input("limit", limit)
+      .query(`
+        SELECT TOP (@limit) 
+          Id as id, Name as name, Email as email, Message as message, 
+          Company as company, Type as type, Product as product, 
+          Quantity as quantity, Status as status, CreatedAt as createdAt
+        FROM Enquiries 
+        ORDER BY CreatedAt DESC
+      `);
+    return result.recordset;
   }
 
-  async createUser(insertUser: InsertUser): Promise<User> {
-    const result = await db.insert(users).values(insertUser).returning();
-    return result[0];
+  // 2. REWRITTEN for MSSQL (Status Update)
+  async updateEnquiryStatus(id: number, status: string): Promise<any> {
+    const pool = await poolPromise;
+    const result = await pool.request()
+      .input("id", id)
+      .input("status", status)
+      .query(`
+        UPDATE Enquiries 
+        SET Status = @status 
+        WHERE Id = @id;
+        
+        SELECT Id as id, Status as status FROM Enquiries WHERE Id = @id;
+      `);
+      
+    if (result.recordset.length === 0) throw new Error("Enquiry not found");
+    return result.recordset[0];
   }
 
-  async createEnquiry(enquiry: InsertEnquiry): Promise<Enquiry> {
-    const result = await db.insert(enquiries).values(enquiry).returning();
-    return result[0];
+  // 3. REWRITTEN for MSSQL (Delete)
+  async deleteEnquiry(id: number): Promise<void> {
+    const pool = await poolPromise;
+    await pool.request()
+      .input("id", id)
+      .query(`DELETE FROM Enquiries WHERE Id = @id`);
   }
 
-  async getEnquiries(limit: number = 50): Promise<Enquiry[]> {
-    return await db
-      .select()
-      .from(enquiries)
-      .orderBy(desc(enquiries.createdAt))
-      .limit(limit);
+  async trackPageVisit(visit: { path: string }) {
+    const pool = await poolPromise;
+    await pool.request()
+      .input("path", visit.path)
+      .query(`INSERT INTO PageVisits (Path) VALUES (@path)`);
   }
 
-  async getEnquiryById(id: number): Promise<Enquiry | undefined> {
-    const result = await db
-      .select()
-      .from(enquiries)
-      .where(eq(enquiries.id, id))
-      .limit(1);
-    return result[0];
-  }
+  async getVisitStats(days = 7) {
+    const pool = await poolPromise;
+    
+    const resultVisits = await pool.request()
+      .input("days", days)
+      .query(`
+        SELECT COUNT(*) AS totalVisits 
+        FROM PageVisits 
+        WHERE Timestamp >= DATEADD(DAY, -@days, GETDATE())
+      `);
 
-  async updateEnquiryStatus(id: number, status: string): Promise<void> {
-    await db.update(enquiries).set({ status }).where(eq(enquiries.id, id));
-  }
-
-  async trackPageVisit(visit: InsertPageVisit): Promise<void> {
-    await db.insert(pageVisits).values(visit);
-    console.log("Page visit tracked:", visit);
-  }
-
-  async getPageVisits(days: number = 7): Promise<PageVisit[]> {
-    const cutoffDate = new Date();
-    cutoffDate.setDate(cutoffDate.getDate() - days);
-
-    return await db
-      .select()
-      .from(pageVisits)
-      .where(gte(pageVisits.timestamp, cutoffDate))
-      .orderBy(desc(pageVisits.timestamp));
-  }
-
-  async getVisitStats(days: number = 7): Promise<{
-    totalVisits: number;
-    totalEnquiries: number;
-    visitsByDay: { date: string; count: number }[];
-  }> {
-    const cutoffDate = new Date();
-    cutoffDate.setDate(cutoffDate.getDate() - days);
-
-    const [visitsResult, enquiriesResult] = await Promise.all([
-      db
-        .select({ count: sql<number>`count(*)` })
-        .from(pageVisits)
-        .where(gte(pageVisits.timestamp, cutoffDate)),
-      db
-        .select({ count: sql<number>`count(*)` })
-        .from(enquiries)
-        .where(gte(enquiries.createdAt, cutoffDate)),
-    ]);
-
-    const visitsByDay = await db
-      .select({
-        date: sql<string>`DATE(${pageVisits.timestamp})`,
-        count: sql<number>`count(*)`,
-      })
-      .from(pageVisits)
-      .where(gte(pageVisits.timestamp, cutoffDate))
-      .groupBy(sql`DATE(${pageVisits.timestamp})`)
-      .orderBy(sql`DATE(${pageVisits.timestamp})`);
+    const resultEnquiries = await pool.request()
+      .input("days", days)
+      .query(`
+        SELECT COUNT(*) AS totalEnquiries 
+        FROM Enquiries 
+        WHERE CreatedAt >= DATEADD(DAY, -@days, GETDATE())
+      `);
 
     return {
-      totalVisits: Number(visitsResult[0]?.count || 0),
-      totalEnquiries: Number(enquiriesResult[0]?.count || 0),
-      visitsByDay: visitsByDay.map((v) => ({
-        date: v.date,
-        count: Number(v.count),
-      })),
+      totalVisits: resultVisits.recordset[0].totalVisits || 0,
+      totalEnquiries: resultEnquiries.recordset[0].totalEnquiries || 0,
     };
   }
 }
 
-export const storage = new DatabaseStorage();
+export const storage = new DatabaseStorageMSSQL();

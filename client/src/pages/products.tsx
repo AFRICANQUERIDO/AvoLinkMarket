@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useLocation } from "wouter";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
@@ -9,8 +10,10 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { Loader2, CheckCircle } from "lucide-react";
+import { Loader2, CheckCircle, ArrowLeft, SearchX } from "lucide-react";
+import { useSearch } from "@/hooks/use-search";
 
+// --- Data Constants ---
 const products = [
   {
     id: "crude",
@@ -62,6 +65,7 @@ const products = [
   }
 ];
 
+// --- Form Schemas ---
 const buyerSchema = z.object({
   type: z.literal("buyer"),
   name: z.string().min(2, "Name is required"),
@@ -77,15 +81,42 @@ const sellerSchema = z.object({
   name: z.string().min(2, "Name is required"),
   company: z.string().min(2, "Company name is required"),
   email: z.string().email("Invalid email address"),
-  message: z.string().min(10, "Please provide some details about your production capacity"),
+  message: z.string().min(10, "Please provide details about your production capacity"),
 });
 
 const formSchema = z.discriminatedUnion("type", [buyerSchema, sellerSchema]);
 
+// --- Main Component ---
 export default function Products() {
+  const { query } = useSearch(); // Listen to global header search correctly
   const { toast } = useToast();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [activeTab, setActiveTab] = useState<"buyer" | "seller">("buyer");
+  const [, setLocation] = useLocation();
+  
+  const queryParams = new URLSearchParams(window.location.search);
+  const categoryFilter = queryParams.get("category");
+
+  // Filter products based on query and category
+  const filteredProducts = products.filter((p) => {
+    const matchesSearch = 
+      p.name.toLowerCase().includes(query) ||
+      p.desc.toLowerCase().includes(query) ||
+      p.specs.some(spec => spec.toLowerCase().includes(query));
+    
+    return matchesSearch;
+  });
+
+  useEffect(() => {
+    if (categoryFilter) {
+      const element = document.getElementById(`${categoryFilter}-section`);
+      if (element) {
+        setTimeout(() => {
+          element.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }, 100);
+      }
+    }
+  }, [categoryFilter]);
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -108,28 +139,11 @@ export default function Products() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(values),
       });
-      
-      if (!response.ok) throw new Error('Failed to submit enquiry');
-      
-      toast({
-        title: "Enquiry Sent Successfully! ✅",
-        description: "We've received your request and our team has been notified. You'll hear back within 24 hours.",
-      });
-      form.reset({
-        type: activeTab,
-        name: "",
-        company: "",
-        email: "",
-        product: "",
-        quantity: "",
-        message: "",
-      });
+      if (!response.ok) throw new Error('Failed to submit');
+      toast({ title: "Enquiry Sent Successfully! ✅" });
+      form.reset({ type: activeTab, name: "", company: "", email: "", product: "", quantity: "", message: "" });
     } catch (error) {
-      toast({
-        title: "Submission Failed",
-        description: "There was an error submitting your enquiry. Please try again.",
-        variant: "destructive",
-      });
+      toast({ title: "Submission Failed", variant: "destructive" });
     } finally {
       setIsSubmitting(false);
     }
@@ -138,140 +152,79 @@ export default function Products() {
   return (
     <div className="bg-background py-16 min-h-screen">
       <div className="container mx-auto px-4">
+        
+        {/* Header Section */}
         <div className="text-center mb-16">
-          <h1 className="font-heading text-4xl md:text-5xl font-bold text-primary mb-4">Our Product Catalogue</h1>
+          <h1 className="font-heading text-4xl md:text-5xl font-bold text-primary mb-4">
+            {categoryFilter ? `${categoryFilter.charAt(0).toUpperCase() + categoryFilter.slice(1)} Catalogue` : "Our Product Catalogue"}
+          </h1>
           <p className="text-muted-foreground text-lg max-w-2xl mx-auto">
-            Sourced directly from verified processors. All products undergo rigorous quality testing before shipment.
+            Sourced directly from verified processors. All products undergo rigorous quality testing.
           </p>
+          {(categoryFilter || query) && (
+            <Button 
+              variant="ghost" 
+              className="mt-4 text-primary" 
+              onClick={() => setLocation("/products")}
+            >
+              <ArrowLeft size={16} className="mr-2" /> Reset View
+            </Button>
+          )}
         </div>
 
-        <div id="avocado-section" className="mb-20">
-          <h2 className="font-heading text-3xl font-bold text-primary mb-8 border-l-4 border-secondary pl-4">Avocado Products</h2>
-          <div className="grid lg:grid-cols-2 xl:grid-cols-4 gap-8">
-            {products.filter(p => !p.id.startsWith('macadamia')).map((product) => (
-              <div key={product.id} className="bg-white rounded-2xl shadow-sm border border-border overflow-hidden hover:shadow-md transition-shadow flex flex-col">
-                <div className="bg-muted/30 p-8 flex items-center justify-center h-48 relative">
-                  {product.badge && (
-                    <span className="absolute top-4 right-4 bg-secondary text-secondary-foreground text-xs font-bold px-3 py-1 rounded-full uppercase tracking-wide">
-                      {product.badge}
-                    </span>
-                  )}
-                  <div className={`w-32 h-32 rounded-full flex items-center justify-center text-4xl font-heading font-bold shadow-inner ${
-                    product.id === 'crude' ? 'bg-green-800 text-green-900' : 
-                    product.id === 'virgin' ? 'bg-green-600 text-green-800' : 
-                    product.id === 'fresh' ? 'bg-emerald-100 text-emerald-700' : 'bg-yellow-100 text-yellow-600'
-                  }`}>
-                     {product.id === 'fresh' ? '🥑' : 'Oil'}
-                  </div>
-                </div>
-                <div className="p-6 flex-grow flex flex-col">
-                  <h3 className="font-heading text-2xl font-bold text-primary mb-2">{product.name}</h3>
-                  <p className="text-2xl font-bold text-secondary mb-4">{product.price}</p>
-                  <p className="text-muted-foreground text-sm mb-6 flex-grow">{product.desc}</p>
-                  
-                  <div className="space-y-2 mb-6">
-                    {product.specs.map((spec, i) => (
-                      <div key={i} className="flex items-center gap-2 text-xs text-foreground/70 font-medium">
-                        <CheckCircle size={14} className="text-primary" /> {spec}
-                      </div>
-                    ))}
-                  </div>
-                  
-                  <Button 
-                    className="w-full bg-primary hover:bg-primary/90"
-                    onClick={() => {
-                      form.setValue('product', product.name);
-                      document.getElementById('enquiry-form')?.scrollIntoView({ behavior: 'smooth' });
-                    }}
-                    data-testid={`button-request-quote-${product.id}`}
-                  >
-                    Request Quote
-                  </Button>
-                </div>
-              </div>
-            ))}
+        {/* No Results State */}
+        {filteredProducts.length === 0 && (
+          <div className="flex flex-col items-center justify-center py-20 text-center border-2 border-dashed rounded-3xl mb-10 bg-muted/10">
+            <SearchX size={48} className="text-muted-foreground/30 mb-4" />
+            <h3 className="text-xl font-bold text-slate-700">No products found</h3>
+            <p className="text-muted-foreground max-w-xs mx-auto">
+              We couldn't find anything matching "{query}". Try a different term like "Oil" or "Hass".
+            </p>
           </div>
-        </div>
+        )}
 
-        <div id="macadamia-section" className="mb-20">
-          <h2 className="font-heading text-3xl font-bold text-primary mb-8 border-l-4 border-amber-500 pl-4">Macadamia Products</h2>
-          <div className="grid lg:grid-cols-2 xl:grid-cols-4 gap-8">
-            {products.filter(p => p.id.startsWith('macadamia')).map((product) => (
-              <div key={product.id} className="bg-white rounded-2xl shadow-sm border border-border overflow-hidden hover:shadow-md transition-shadow flex flex-col">
-                <div className="bg-muted/30 p-8 flex items-center justify-center h-48 relative">
-                  {product.badge && (
-                    <span className="absolute top-4 right-4 bg-secondary text-secondary-foreground text-xs font-bold px-3 py-1 rounded-full uppercase tracking-wide">
-                      {product.badge}
-                    </span>
-                  )}
-                  <div className="w-32 h-32 rounded-full flex items-center justify-center text-4xl font-heading font-bold shadow-inner bg-amber-100 text-amber-700">
-                     Oil
-                  </div>
-                </div>
-                <div className="p-6 flex-grow flex flex-col">
-                  <h3 className="font-heading text-2xl font-bold text-primary mb-2">{product.name}</h3>
-                  <p className="text-2xl font-bold text-secondary mb-4">{product.price}</p>
-                  <p className="text-muted-foreground text-sm mb-6 flex-grow">{product.desc}</p>
-                  
-                  <div className="space-y-2 mb-6">
-                    {product.specs.map((spec, i) => (
-                      <div key={i} className="flex items-center gap-2 text-xs text-foreground/70 font-medium">
-                        <CheckCircle size={14} className="text-primary" /> {spec}
-                      </div>
-                    ))}
-                  </div>
-                  
-                  <Button 
-                    className="w-full bg-primary hover:bg-primary/90"
-                    onClick={() => {
-                      form.setValue('product', product.name);
-                      document.getElementById('enquiry-form')?.scrollIntoView({ behavior: 'smooth' });
-                    }}
-                    data-testid={`button-request-quote-${product.id}`}
-                  >
-                    Request Quote
-                  </Button>
-                </div>
-              </div>
-            ))}
+        {/* Avocado Section */}
+        {(!categoryFilter || categoryFilter === 'avocado') && (
+          <div id="avocado-section" className={`mb-20 scroll-mt-24 transition-opacity ${filteredProducts.filter(p => !p.id.startsWith('macadamia')).length === 0 ? 'hidden' : 'block'}`}>
+            <h2 className="font-heading text-3xl font-bold text-primary mb-8 border-l-4 border-secondary pl-4">Avocado Products</h2>
+            <div className="grid lg:grid-cols-2 xl:grid-cols-4 gap-8">
+              {filteredProducts.filter(p => !p.id.startsWith('macadamia')).map((product) => (
+                <ProductCard key={product.id} product={product} form={form} />
+              ))}
+            </div>
           </div>
-        </div>
+        )}
 
-        {/* Enquiry Form Section */}
-        <div id="enquiry-form" className="max-w-4xl mx-auto bg-white rounded-3xl shadow-xl overflow-hidden border border-border">
+        {/* Macadamia Section */}
+        {(!categoryFilter || categoryFilter === 'macadamia') && (
+          <div id="macadamia-section" className={`mb-20 scroll-mt-24 transition-opacity ${filteredProducts.filter(p => p.id.startsWith('macadamia')).length === 0 ? 'hidden' : 'block'}`}>
+            <h2 className="font-heading text-3xl font-bold text-primary mb-8 border-l-4 border-amber-500 pl-4">Macadamia Products</h2>
+            <div className="grid lg:grid-cols-2 xl:grid-cols-4 gap-8">
+              {filteredProducts.filter(p => p.id.startsWith('macadamia')).map((product) => (
+                <ProductCard key={product.id} product={product} form={form} />
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Enquiry Form */}
+        <div id="enquiry-form" className="max-w-4xl mx-auto bg-white rounded-3xl shadow-xl overflow-hidden border border-border mt-20 scroll-mt-24">
           <div className="grid md:grid-cols-2">
             <div className="bg-primary p-10 text-white flex flex-col justify-center">
               <h3 className="font-heading text-3xl font-bold mb-4">Get a Custom Quote</h3>
-              <p className="text-white/80 mb-8">
-                Tell us your requirements and we'll connect you with the best processor for your needs. We handle the logistics, quality checks, and paperwork.
-              </p>
+              <p className="text-white/80 mb-8">Tell us your requirements and we'll connect you with the best processor.</p>
               <ul className="space-y-4">
-                <li className="flex items-center gap-3">
-                  <div className="w-8 h-8 rounded-full bg-secondary/20 flex items-center justify-center text-secondary">✓</div>
-                  <span>Response within 24 hours</span>
-                </li>
-                <li className="flex items-center gap-3">
-                  <div className="w-8 h-8 rounded-full bg-secondary/20 flex items-center justify-center text-secondary">✓</div>
-                  <span>Competitive market rates</span>
-                </li>
-                <li className="flex items-center gap-3">
-                  <div className="w-8 h-8 rounded-full bg-secondary/20 flex items-center justify-center text-secondary">✓</div>
-                  <span>Sample shipping available</span>
-                </li>
+                <li className="flex items-center gap-3">✓ Response within 24 hours</li>
+                <li className="flex items-center gap-3">✓ Competitive market rates</li>
               </ul>
             </div>
 
             <div className="p-10">
-              <Tabs 
-                defaultValue="buyer" 
-                value={activeTab} 
-                onValueChange={(v) => {
-                  const type = v as "buyer" | "seller";
-                  setActiveTab(type);
-                  form.setValue("type", type);
-                }}
-                className="mb-6"
-              >
+              <Tabs value={activeTab} onValueChange={(v) => {
+                const type = v as "buyer" | "seller";
+                setActiveTab(type);
+                form.setValue("type", type);
+              }} className="mb-6">
                 <TabsList className="grid w-full grid-cols-2">
                   <TabsTrigger value="buyer">I am a Buyer</TabsTrigger>
                   <TabsTrigger value="seller">I am a Seller</TabsTrigger>
@@ -280,136 +233,90 @@ export default function Products() {
 
               <Form {...form}>
                 <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-                  <FormField
-                    control={form.control}
-                    name="name"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Full Name</FormLabel>
-                        <FormControl>
-                          <Input placeholder="John Doe" {...field} data-testid="input-name" />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  
+                  <FormField control={form.control} name="name" render={({ field }) => (
+                    <FormItem><FormLabel>Full Name</FormLabel><FormControl><Input placeholder="John Doe" {...field} /></FormControl><FormMessage /></FormItem>
+                  )} />
                   <div className="grid grid-cols-2 gap-4">
-                    <FormField
-                      control={form.control}
-                      name="email"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Email</FormLabel>
-                          <FormControl>
-                            <Input placeholder="john@company.com" {...field} data-testid="input-email" />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    <FormField
-                      control={form.control}
-                      name="company"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Company</FormLabel>
-                          <FormControl>
-                            <Input placeholder="Company Ltd" {...field} data-testid="input-company" />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
+                    <FormField control={form.control} name="email" render={({ field }) => (
+                      <FormItem><FormLabel>Email</FormLabel><FormControl><Input placeholder="john@company.com" {...field} /></FormControl><FormMessage /></FormItem>
+                    )} />
+                    <FormField control={form.control} name="company" render={({ field }) => (
+                      <FormItem><FormLabel>Company</FormLabel><FormControl><Input placeholder="Company Ltd" {...field} /></FormControl><FormMessage /></FormItem>
+                    )} />
                   </div>
-
                   {activeTab === "buyer" && (
                     <div className="grid grid-cols-2 gap-4">
-                      <FormField
-                        control={form.control}
-                        name="product"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Product Interest</FormLabel>
-                            <Select onValueChange={field.onChange} defaultValue={field.value} value={field.value}>
-                              <FormControl>
-                                <SelectTrigger data-testid="select-product">
-                                  <SelectValue placeholder="Select product" />
-                                </SelectTrigger>
-                              </FormControl>
-                              <SelectContent>
-                                <SelectItem value="Crude Avocado Oil">Crude Avocado Oil</SelectItem>
-                                <SelectItem value="Extra Virgin Avocado Oil">Extra Virgin Avocado Oil</SelectItem>
-                                <SelectItem value="Refined Avocado Oil">Refined Avocado Oil</SelectItem>
-                                <SelectItem value="Crude Macadamia Oil">Crude Macadamia Oil</SelectItem>
-                                <SelectItem value="Refined Macadamia Oil">Refined Macadamia Oil</SelectItem>
-                                <SelectItem value="Fresh Avocado Exports">Fresh Avocado Exports</SelectItem>
-                              </SelectContent>
-                            </Select>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                      <FormField
-                        control={form.control}
-                        name="quantity"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Est. Quantity</FormLabel>
-                            <Select onValueChange={field.onChange} defaultValue={field.value}>
-                              <FormControl>
-                                <SelectTrigger data-testid="select-quantity">
-                                  <SelectValue placeholder="Select quantity" />
-                                </SelectTrigger>
-                              </FormControl>
-                              <SelectContent>
-                                <SelectItem value="Sample (< 5kg)">Sample (&lt; 5kg)</SelectItem>
-                                <SelectItem value="Small (100kg - 1 Ton)">Small (100kg - 1 Ton)</SelectItem>
-                                <SelectItem value="Medium (1 Ton - 10 Tons)">Medium (1 Ton - 10 Tons)</SelectItem>
-                                <SelectItem value="Large (10 Tons+)">Large (10 Tons+)</SelectItem>
-                                <SelectItem value="Container (20ft)">20ft Container (approx 20 Tons)</SelectItem>
-                                <SelectItem value="Container (40ft)">40ft Container (approx 40 Tons)</SelectItem>
-                              </SelectContent>
-                            </Select>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
+                      <FormField control={form.control} name="product" render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Product Interest</FormLabel>
+                          <Select onValueChange={field.onChange} value={field.value}>
+                            <FormControl><SelectTrigger><SelectValue placeholder="Select product" /></SelectTrigger></FormControl>
+                            <SelectContent>{products.map(p => <SelectItem key={p.id} value={p.name}>{p.name}</SelectItem>)}</SelectContent>
+                          </Select>
+                          <FormMessage />
+                        </FormItem>
+                      )} />
+                      <FormField control={form.control} name="quantity" render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Est. Quantity</FormLabel>
+                          <Select onValueChange={field.onChange} value={field.value}>
+                            <FormControl><SelectTrigger><SelectValue placeholder="Select quantity" /></SelectTrigger></FormControl>
+                            <SelectContent>
+                              <SelectItem value="Sample (< 5kg)">Sample (&lt; 5kg)</SelectItem>
+                              <SelectItem value="Small (100kg - 1 Ton)">Small (100kg - 1 Ton)</SelectItem>
+                              <SelectItem value="Large (10 Tons+)">Large (10 Tons+)</SelectItem>
+                            </SelectContent>
+                          </Select>
+                          <FormMessage />
+                        </FormItem>
+                      )} />
                     </div>
                   )}
-
-                  <FormField
-                    control={form.control}
-                    name="message"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>{activeTab === "buyer" ? "Additional Details" : "Production Capacity & Origin"}</FormLabel>
-                        <FormControl>
-                          <Textarea 
-                            placeholder={activeTab === "buyer" ? "Specific requirements, destination port, packaging needs..." : "Tell us about your processing capacity, location, and certification status..."}
-                            className="resize-none h-24" 
-                            {...field}
-                            data-testid="textarea-message"
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  <Button 
-                    type="submit" 
-                    className="w-full bg-primary hover:bg-primary/90 text-lg h-12" 
-                    disabled={isSubmitting}
-                    data-testid="button-submit-enquiry"
-                  >
-                    {isSubmitting ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Sending...</> : "Send Enquiry"}
+                  <FormField control={form.control} name="message" render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>{activeTab === "buyer" ? "Additional Details" : "Production Capacity"}</FormLabel>
+                      <FormControl><Textarea className="resize-none h-24" {...field} /></FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )} />
+                  <Button type="submit" className="w-full bg-primary h-12" disabled={isSubmitting}>
+                    {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : "Send Enquiry"}
                   </Button>
                 </form>
               </Form>
             </div>
           </div>
         </div>
+      </div>
+    </div>
+  );
+}
+
+// --- Sub-components ---
+function ProductCard({ product, form }: { product: any, form: any }) {
+  return (
+    <div className="bg-white rounded-2xl shadow-sm border border-border overflow-hidden hover:shadow-md transition-shadow flex flex-col group">
+      <div className="bg-muted/30 p-8 flex items-center justify-center h-48 relative overflow-hidden">
+        {product.badge && <span className="absolute top-4 right-4 bg-secondary text-secondary-foreground text-xs font-bold px-3 py-1 rounded-full uppercase z-10">{product.badge}</span>}
+        <div className={`w-32 h-32 rounded-full flex items-center justify-center text-4xl font-bold shadow-inner transition-transform group-hover:scale-110 ${product.id.includes('macadamia') ? 'bg-amber-100 text-amber-700' : 'bg-green-100 text-green-700'}`}>
+          {product.id === 'fresh' ? '🥑' : 'Oil'}
+        </div>
+      </div>
+      <div className="p-6 flex-grow flex flex-col">
+        <h3 className="font-heading text-2xl font-bold text-primary mb-2">{product.name}</h3>
+        <p className="text-xl font-bold text-secondary mb-4">{product.price}</p>
+        <p className="text-muted-foreground text-sm mb-6 flex-grow">{product.desc}</p>
+        <div className="space-y-2 mb-6">
+          {product.specs.map((spec: string, i: number) => (
+            <div key={i} className="flex items-center gap-2 text-xs font-medium">
+              <CheckCircle size={14} className="text-primary" /> {spec}
+            </div>
+          ))}
+        </div>
+        <Button onClick={() => {
+          form.setValue('product', product.name);
+          document.getElementById('enquiry-form')?.scrollIntoView({ behavior: 'smooth' });
+        }}>Request Quote</Button>
       </div>
     </div>
   );

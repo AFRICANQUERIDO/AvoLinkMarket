@@ -1,137 +1,82 @@
-import type { Express } from "express";
-import { type Server } from "http";
+import { Express, Request, Response } from "express";
 import { storage } from "./storage";
-import { insertEnquirySchema, insertPageVisitSchema } from "@shared/schema";
-import { z } from "zod";
-import { Resend } from 'resend';
+import { sendEmail } from "./mailer";
 
-const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null;
-
-export async function registerRoutes(
-  httpServer: Server,
-  app: Express
-): Promise<Server> {
+export async function registerRoutes(_server: any, app: Express) {
   
-  // Submit enquiry
-  app.post("/api/enquiries", async (req, res) => {
+  // 1. CREATE Enquiry
+  app.post("/api/enquiries", async (req: Request, res: Response) => {
     try {
-      const data = insertEnquirySchema.parse(req.body);
-      if (!data.type) {
-        throw new Error("Enquiry type is required");
-      }
-      const enquiry = await storage.createEnquiry(data);
+      const result = await storage.createEnquiry(req.body);
       
-      const adminEmail = process.env.ADMIN_EMAIL || 'janengene12@gmail.com';
-      const subjectPrefix = data.type === 'buyer' ? 'BUYER ENQUIRY' : 'SELLER ENQUIRY';
-      const subject = `[${subjectPrefix}] ${data.type === 'buyer' ? 'New Product Enquiry' : 'New Seller/Processor Registration'} - ${data.name}`;
-      
-      const emailHtml = `
-        <div style="font-family: sans-serif; line-height: 1.6; color: #333;">
-          <h2 style="color: #166534; border-bottom: 2px solid #fbbf24; padding-bottom: 10px;">New ${data.type.toUpperCase()} Enquiry</h2>
-          <table style="width: 100%; border-collapse: collapse;">
-            <tr>
-              <td style="padding: 8px; font-weight: bold; width: 150px;">Name:</td>
-              <td style="padding: 8px;">${data.name}</td>
-            </tr>
-            <tr>
-              <td style="padding: 8px; font-weight: bold;">Company:</td>
-              <td style="padding: 8px;">${data.company}</td>
-            </tr>
-            <tr>
-              <td style="padding: 8px; font-weight: bold;">Email:</td>
-              <td style="padding: 8px;">${data.email}</td>
-            </tr>
-            ${data.type === 'buyer' ? `
-            <tr>
-              <td style="padding: 8px; font-weight: bold;">Product:</td>
-              <td style="padding: 8px;">${data.product || 'N/A'}</td>
-            </tr>
-            <tr>
-              <td style="padding: 8px; font-weight: bold;">Quantity:</td>
-              <td style="padding: 8px;">${data.quantity || 'N/A'}</td>
-            </tr>
-            ` : ''}
-            <tr>
-              <td style="padding: 8px; font-weight: bold;">Details:</td>
-              <td style="padding: 8px;">${data.message || 'N/A'}</td>
-            </tr>
-          </table>
-          <p style="margin-top: 20px; font-size: 12px; color: #666;">This enquiry was submitted via the AvoLink Global Marketplace platform.</p>
-        </div>
-      `;
-
-      // Log email notification
-      console.log(`\n📧 SENDING ${data.type.toUpperCase()} ENQUIRY EMAIL TO ${adminEmail}`);
-      
-      if (resend) {
-        try {
-          await resend.emails.send({
-            from: 'AvoLink Marketplace <onboarding@resend.dev>',
-            to: adminEmail,
-            subject: subject,
-            html: emailHtml,
-          });
-          console.log('✅ Email sent successfully via Resend');
-        } catch (error) {
-          console.error('❌ Resend Error:', error);
-        }
-      } else {
-        console.log('⚠️ RESEND_API_KEY not found. Email logged to console only.');
-        console.log('═══════════════════════════════════════');
-        console.log(`Subject: ${subject}`);
-        console.log('───────────────────────────────────────');
-        console.log(emailHtml.replace(/<[^>]*>/g, ''));
-        console.log('═══════════════════════════════════════\n');
+      if (req.body.name && req.body.email) {
+        await sendEmail(req.body.name, req.body.email, req.body.message || "New Enquiry");
       }
       
-      res.json({ success: true, enquiry });
-    } catch (error) {
-      if (error instanceof z.ZodError) {
-        return res.status(400).json({ error: error.errors });
-      }
-      console.error('Error creating enquiry:', error);
-      res.status(500).json({ error: 'Failed to submit enquiry' });
+      res.status(200).json({ success: true });
+    } catch (err) {
+      console.error("POST Error:", err);
+      res.status(500).json({ error: "Failed to save enquiry" });
     }
   });
 
-  // Get recent enquiries (for admin dashboard)
+  // 2. READ All Enquiries
   app.get("/api/enquiries", async (req, res) => {
     try {
-      const limit = req.query.limit ? parseInt(req.query.limit as string) : 50;
+      const limit = parseInt(req.query.limit as string) || 50;
       const enquiries = await storage.getEnquiries(limit);
-      res.json({ enquiries });
+      res.json(enquiries); 
     } catch (error) {
-      console.error('Error fetching enquiries:', error);
-      res.status(500).json({ error: 'Failed to fetch enquiries' });
+      res.status(500).json({ message: "Failed to fetch enquiries" });
     }
   });
 
-  // Track page visit
-  app.post("/api/track-visit", async (req, res) => {
+  // 3. UPDATE Enquiry Status
+  app.patch("/api/enquiries/:id", async (req, res) => {
+    const id = parseInt(req.params.id);
+    const { status } = req.body;
+
+    const allowedStatuses = ['new', 'pending', 'completed', 'archived'];
+    if (!allowedStatuses.includes(status)) {
+      return res.status(400).send("Invalid status");
+    }
+
     try {
-      const data = insertPageVisitSchema.parse(req.body);
-      await storage.trackPageVisit(data);
-      res.json({ success: true });
+      const updated = await storage.updateEnquiryStatus(id, status);
+      res.json(updated);
     } catch (error) {
-      if (error instanceof z.ZodError) {
-        return res.status(400).json({ error: error.errors });
-      }
-      console.error('Error tracking visit:', error);
-      res.status(500).json({ error: 'Failed to track visit' });
+      res.status(404).send("Enquiry not found");
     }
   });
 
-  // Get analytics stats
+  // 4. DELETE Enquiry
+  app.delete("/api/enquiries/:id", async (req, res) => {
+    const id = parseInt(req.params.id);
+    try {
+      await storage.deleteEnquiry(id);
+      res.status(204).send(); 
+    } catch (error) {
+      res.status(404).send("Enquiry not found");
+    }
+  });
+
+  // --- Analytics Routes ---
   app.get("/api/analytics/stats", async (req, res) => {
     try {
-      const days = req.query.days ? parseInt(req.query.days as string) : 7;
+      const days = parseInt(req.query.days as string) || 7;
       const stats = await storage.getVisitStats(days);
       res.json(stats);
     } catch (error) {
-      console.error('Error fetching stats:', error);
-      res.status(500).json({ error: 'Failed to fetch analytics' });
+      res.status(500).json({ error: "Failed to fetch analytics" });
     }
   });
 
-  return httpServer;
+  app.post("/api/analytics/visit", async (req, res) => {
+    try {
+      await storage.trackPageVisit({ path: req.body.path });
+      res.json({ success: true });
+    } catch (err) {
+      res.status(500).json({ error: "Failed to track visit" });
+    }
+  });
 }

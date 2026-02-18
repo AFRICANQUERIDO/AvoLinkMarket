@@ -1,16 +1,27 @@
+import { useState } from "react";
 import { motion } from "framer-motion";
-import { ArrowRight, Droplets, Globe, TrendingUp, ShieldCheck } from "lucide-react";
+import { ArrowRight, Droplets, Globe, TrendingUp, ShieldCheck, Search } from "lucide-react";
 import { Link } from "wouter";
+import { useSearch } from "@/hooks/use-search";
 import oilImage from "@assets/generated_images/premium_avocado_oil_pouring.png";
 import factoryImage from "@assets/generated_images/modern_avocado_processing_facility.png";
-import logisticsImage from "@assets/generated_images/global_trade_logistics_map.png";
 
 export default function Home() {
+  const [tempSearch, setTempSearch] = useState("");
+  const { handleSearch } = useSearch();
+
+  const onSearchSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!tempSearch.trim()) return;
+    
+    // Pass the destination '/products' so the hook redirects the user
+    handleSearch(tempSearch, "/products");
+  };
+
   return (
     <div className="overflow-hidden">
       {/* Hero Section */}
       <section className="relative min-h-[90vh] flex items-center bg-primary overflow-hidden">
-        {/* Background Image with Overlay */}
         <div className="absolute inset-0 z-0">
           <img 
             src={oilImage} 
@@ -33,17 +44,31 @@ export default function Home() {
             <h1 className="font-heading text-5xl md:text-7xl font-bold leading-tight">
               Premium Avocado Oil <span className="text-secondary italic">Market Linkages</span>
             </h1>
-            <p className="text-lg md:text-xl text-white/80 max-w-lg leading-relaxed">
-              Connecting European buyers directly with verified African processors. 
-              Source bulk Crude, Virgin, and Refined Avocado Oil with complete transparency.
-            </p>
+            
+            {/* --- SEARCH BAR --- */}
+            <form onSubmit={onSearchSubmit} className="relative max-w-md group">
+              <input 
+                type="text"
+                placeholder="Search products (e.g. 'Extra Virgin', 'Crude')..."
+                className="w-full h-14 pl-6 pr-16 rounded-xl bg-white/10 backdrop-blur-md border border-white/20 text-white placeholder:text-white/50 outline-none focus:bg-white focus:text-primary focus:placeholder:text-primary/40 transition-all shadow-2xl"
+                value={tempSearch}
+                onChange={(e) => setTempSearch(e.target.value)}
+              />
+              <button 
+                type="submit"
+                className="absolute right-2 top-2 h-10 w-10 bg-secondary text-secondary-foreground rounded-lg flex items-center justify-center hover:scale-105 active:scale-95 transition-all"
+              >
+                <Search size={18} />
+              </button>
+            </form>
+
             <div className="flex flex-col sm:flex-row gap-4 pt-4">
-              <Link href="/products#avocado-section">
+              <Link href="/products?category=avocado">
                 <a className="bg-secondary text-secondary-foreground px-8 py-4 rounded-lg font-bold text-lg flex items-center justify-center gap-2 hover:bg-white transition-colors">
                   Avocado Products <ArrowRight size={20} />
                 </a>
               </Link>
-              <Link href="/products#macadamia-section">
+              <Link href="/products?category=macadamia">
                 <a className="bg-transparent border border-white/30 text-white px-8 py-4 rounded-lg font-bold text-lg flex items-center justify-center gap-2 hover:bg-white/10 transition-colors backdrop-blur-sm">
                   Macadamia Products <ArrowRight size={20} />
                 </a>
@@ -64,22 +89,22 @@ export default function Home() {
                   <TrendingUp size={24} />
                 </div>
                 <div>
-                  <p className="text-xs uppercase tracking-wider opacity-70">Weekly Demand</p>
+                  <p className="text-xs uppercase tracking-wider opacity-70">Weekly Demand (2026)</p>
                   <p className="text-2xl font-bold">+24% Growth</p>
                 </div>
               </div>
               <div className="space-y-4">
                 <div className="flex justify-between text-sm border-b border-white/10 pb-2">
                   <span>Crude Oil</span>
-                  <span className="font-bold text-secondary">€3.85/kg</span>
+                  <span className="font-bold text-secondary">Ksh 4.10/kg</span>
                 </div>
                 <div className="flex justify-between text-sm border-b border-white/10 pb-2">
                   <span>Extra Virgin</span>
-                  <span className="font-bold text-secondary">€9.20/kg</span>
+                  <span className="font-bold text-secondary">Ksh 9.20/kg</span>
                 </div>
                 <div className="flex justify-between text-sm">
                   <span>Refined</span>
-                  <span className="font-bold text-secondary">€5.10/kg</span>
+                  <span className="font-bold text-secondary">Ksh 5.10/kg</span>
                 </div>
               </div>
             </div>
@@ -132,31 +157,23 @@ export default function Home() {
           <div className="space-y-8">
             <h2 className="font-heading text-4xl font-bold text-primary">Direct from Source to Shelf</h2>
             <p className="text-lg text-muted-foreground">
-              By cutting out multiple middlemen, we offer better prices for buyers and higher margins for processors. Our platform provides visibility into the supply chain that was previously impossible.
+              By cutting out middlemen, we offer better prices for buyers and higher margins for processors. Our platform provides transparency into the supply chain.
             </p>
             
             <div className="space-y-4">
-              <div className="flex gap-4">
-                <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold shrink-0">1</div>
-                <div>
-                  <h4 className="font-bold text-lg">Browse Catalogue</h4>
-                  <p className="text-sm text-muted-foreground">Access real-time availability of crude and refined oils.</p>
+              {[
+                { title: "Browse Catalogue", desc: "Access real-time availability of crude and refined oils." },
+                { title: "Request Samples", desc: "Order samples directly from multiple processors to test quality." },
+                { title: "Secure Contracts", desc: "Finalize long-term supply contracts with vetted partners." }
+              ].map((step, i) => (
+                <div key={i} className="flex gap-4">
+                  <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold shrink-0">{i + 1}</div>
+                  <div>
+                    <h4 className="font-bold text-lg">{step.title}</h4>
+                    <p className="text-sm text-muted-foreground">{step.desc}</p>
+                  </div>
                 </div>
-              </div>
-              <div className="flex gap-4">
-                <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold shrink-0">2</div>
-                <div>
-                  <h4 className="font-bold text-lg">Request Samples</h4>
-                  <p className="text-sm text-muted-foreground">Order samples directly from multiple processors to test quality.</p>
-                </div>
-              </div>
-              <div className="flex gap-4">
-                <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold shrink-0">3</div>
-                <div>
-                  <h4 className="font-bold text-lg">Secure Contracts</h4>
-                  <p className="text-sm text-muted-foreground">Finalize long-term supply contracts with vetted partners.</p>
-                </div>
-              </div>
+              ))}
             </div>
 
             <Link href="/products">
