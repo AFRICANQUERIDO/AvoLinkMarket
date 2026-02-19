@@ -10,60 +10,9 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { Loader2, CheckCircle, ArrowLeft, SearchX } from "lucide-react";
+import { Loader2, CheckCircle, ArrowLeft, SearchX, PackageOpen } from "lucide-react";
 import { useSearch } from "@/hooks/use-search";
-
-// --- Data Constants ---
-const products = [
-  {
-    id: "crude",
-    name: "Crude Avocado Oil",
-    price: "Ksh .3.80 - Ksh 4.20 / kg",
-    desc: "Unrefined, cold-pressed oil retaining all natural nutrients and characteristic emerald green color.",
-    specs: ["FFA: < 1.0%", "Peroxide: < 10 meq/kg", "Origin: Kenya/Tanzania"],
-    badge: "Best Seller"
-  },
-  {
-    id: "virgin",
-    name: "Extra Virgin Avocado Oil",
-    price: "Ksh 8.50 - Ksh 9.50 / kg",
-    desc: "Premium food-grade oil produced from high-quality Hass avocados. Perfect for culinary applications.",
-    specs: ["FFA: < 0.5%", "Cold Pressed", "Emerald Green"],
-    badge: "Premium"
-  },
-  {
-    id: "refined",
-    name: "Refined Avocado Oil",
-    price: "Ksh 4.90 - Ksh 5.50 / kg",
-    desc: "Bleached and deodorized oil suitable for cosmetics and high-heat cooking. Neutral color and scent.",
-    specs: ["FFA: < 0.1%", "Odorless", "Pale Yellow"],
-    badge: "Versatile"
-  },
-  {
-    id: "macadamia_crude",
-    name: "Crude Macadamia Oil",
-    price: "Inquire for Pricing",
-    desc: "Cold-pressed macadamia oil, rich in palmitoleic acid. Excellent for premium cosmetic formulations.",
-    specs: ["Cold Pressed", "High Palmitoleic Acid", "Origin: Kenya/South Africa"],
-    badge: "New"
-  },
-  {
-    id: "macadamia_refined",
-    name: "Refined Macadamia Oil",
-    price: "Inquire for Pricing",
-    desc: "Refined macadamia oil with high smoke point and neutral profile. Ideal for culinary and beauty products.",
-    specs: ["Neutral Scent", "High Stability", "Food & Cosmetic Grade"],
-    badge: "Premium"
-  },
-  {
-    id: "fresh",
-    name: "Fresh Avocado Exports",
-    price: "Market Price (Inquire for Daily Rates)",
-    desc: "Premium quality fresh avocados (Hass & Fuerte) sourced from verified growers across East Africa. Global GAP certified.",
-    specs: ["Origin: Kenya, Tanzania, Uganda", "Size: 12 - 24 count", "Global GAP Certified"],
-    badge: "Fresh"
-  }
-];
+import { useQuery } from "@tanstack/react-query";
 
 // --- Form Schemas ---
 const buyerSchema = z.object({
@@ -86,26 +35,34 @@ const sellerSchema = z.object({
 
 const formSchema = z.discriminatedUnion("type", [buyerSchema, sellerSchema]);
 
-// --- Main Component ---
 export default function Products() {
-  const { query } = useSearch(); // Listen to global header search correctly
+  const { query } = useSearch(); 
   const { toast } = useToast();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [activeTab, setActiveTab] = useState<"buyer" | "seller">("buyer");
   const [, setLocation] = useLocation();
+
+  // 1. Fetching data from MSSQL via our API
+  const { data: products = [], isLoading } = useQuery({
+    queryKey: ['/api/products'],
+  });
   
   const queryParams = new URLSearchParams(window.location.search);
   const categoryFilter = queryParams.get("category");
 
-  // Filter products based on query and category
+  // 2. Optimized Filtering Logic
   const filteredProducts = products.filter((p) => {
+    const searchLower = query.toLowerCase();
     const matchesSearch = 
-      p.name.toLowerCase().includes(query) ||
-      p.desc.toLowerCase().includes(query) ||
-      p.specs.some(spec => spec.toLowerCase().includes(query));
+      p.name.toLowerCase().includes(searchLower) ||
+      p.desc.toLowerCase().includes(searchLower) ||
+      (p.specs && p.specs.some((spec: string) => spec.toLowerCase().includes(searchLower)));
     
     return matchesSearch;
   });
+
+  const avocadoProducts = filteredProducts.filter(p => p.category === 'avocado');
+  const macadamiaProducts = filteredProducts.filter(p => p.category === 'macadamia');
 
   useEffect(() => {
     if (categoryFilter) {
@@ -172,8 +129,16 @@ export default function Products() {
           )}
         </div>
 
-        {/* No Results State */}
-        {filteredProducts.length === 0 && (
+        {/* --- Loading State --- */}
+        {isLoading && (
+          <div className="flex flex-col items-center justify-center py-20">
+            <Loader2 className="h-12 w-12 animate-spin text-primary/30 mb-4" />
+            <p className="text-muted-foreground animate-pulse">Loading latest market products...</p>
+          </div>
+        )}
+
+        {/* --- No Results State --- */}
+        {!isLoading && filteredProducts.length === 0 && (
           <div className="flex flex-col items-center justify-center py-20 text-center border-2 border-dashed rounded-3xl mb-10 bg-muted/10">
             <SearchX size={48} className="text-muted-foreground/30 mb-4" />
             <h3 className="text-xl font-bold text-slate-700">No products found</h3>
@@ -184,11 +149,11 @@ export default function Products() {
         )}
 
         {/* Avocado Section */}
-        {(!categoryFilter || categoryFilter === 'avocado') && (
-          <div id="avocado-section" className={`mb-20 scroll-mt-24 transition-opacity ${filteredProducts.filter(p => !p.id.startsWith('macadamia')).length === 0 ? 'hidden' : 'block'}`}>
+        {(!categoryFilter || categoryFilter === 'avocado') && avocadoProducts.length > 0 && (
+          <div id="avocado-section" className="mb-20 scroll-mt-24 transition-opacity">
             <h2 className="font-heading text-3xl font-bold text-primary mb-8 border-l-4 border-secondary pl-4">Avocado Products</h2>
             <div className="grid lg:grid-cols-2 xl:grid-cols-4 gap-8">
-              {filteredProducts.filter(p => !p.id.startsWith('macadamia')).map((product) => (
+              {avocadoProducts.map((product) => (
                 <ProductCard key={product.id} product={product} form={form} />
               ))}
             </div>
@@ -196,11 +161,11 @@ export default function Products() {
         )}
 
         {/* Macadamia Section */}
-        {(!categoryFilter || categoryFilter === 'macadamia') && (
-          <div id="macadamia-section" className={`mb-20 scroll-mt-24 transition-opacity ${filteredProducts.filter(p => p.id.startsWith('macadamia')).length === 0 ? 'hidden' : 'block'}`}>
+        {(!categoryFilter || categoryFilter === 'macadamia') && macadamiaProducts.length > 0 && (
+          <div id="macadamia-section" className="mb-20 scroll-mt-24 transition-opacity">
             <h2 className="font-heading text-3xl font-bold text-primary mb-8 border-l-4 border-amber-500 pl-4">Macadamia Products</h2>
             <div className="grid lg:grid-cols-2 xl:grid-cols-4 gap-8">
-              {filteredProducts.filter(p => p.id.startsWith('macadamia')).map((product) => (
+              {macadamiaProducts.map((product) => (
                 <ProductCard key={product.id} product={product} form={form} />
               ))}
             </div>
@@ -251,7 +216,7 @@ export default function Products() {
                           <FormLabel>Product Interest</FormLabel>
                           <Select onValueChange={field.onChange} value={field.value}>
                             <FormControl><SelectTrigger><SelectValue placeholder="Select product" /></SelectTrigger></FormControl>
-                            <SelectContent>{products.map(p => <SelectItem key={p.id} value={p.name}>{p.name}</SelectItem>)}</SelectContent>
+                            <SelectContent>{products.map((p: any) => <SelectItem key={p.id} value={p.name}>{p.name}</SelectItem>)}</SelectContent>
                           </Select>
                           <FormMessage />
                         </FormItem>
@@ -294,29 +259,45 @@ export default function Products() {
 
 // --- Sub-components ---
 function ProductCard({ product, form }: { product: any, form: any }) {
+  const isMacadamia = product.category === 'macadamia';
+  const isFresh = product.name.toLowerCase().includes('fresh');
+
   return (
-    <div className="bg-white rounded-2xl shadow-sm border border-border overflow-hidden hover:shadow-md transition-shadow flex flex-col group">
+    <div className="bg-white rounded-2xl shadow-sm border border-border overflow-hidden hover:shadow-md transition-shadow flex flex-col group h-full">
       <div className="bg-muted/30 p-8 flex items-center justify-center h-48 relative overflow-hidden">
-        {product.badge && <span className="absolute top-4 right-4 bg-secondary text-secondary-foreground text-xs font-bold px-3 py-1 rounded-full uppercase z-10">{product.badge}</span>}
-        <div className={`w-32 h-32 rounded-full flex items-center justify-center text-4xl font-bold shadow-inner transition-transform group-hover:scale-110 ${product.id.includes('macadamia') ? 'bg-amber-100 text-amber-700' : 'bg-green-100 text-green-700'}`}>
-          {product.id === 'fresh' ? '🥑' : 'Oil'}
+        {product.badge && (
+          <span className="absolute top-4 right-4 bg-secondary text-secondary-foreground text-xs font-bold px-3 py-1 rounded-full uppercase z-10">
+            {product.badge}
+          </span>
+        )}
+        <div className={`w-32 h-32 rounded-full flex items-center justify-center text-4xl font-bold shadow-inner transition-transform group-hover:scale-110 
+          ${isMacadamia ? 'bg-amber-100 text-amber-700' : 'bg-green-100 text-green-700'}`}>
+          {isFresh ? '🥑' : '🫗'}
         </div>
       </div>
       <div className="p-6 flex-grow flex flex-col">
-        <h3 className="font-heading text-2xl font-bold text-primary mb-2">{product.name}</h3>
-        <p className="text-xl font-bold text-secondary mb-4">{product.price}</p>
-        <p className="text-muted-foreground text-sm mb-6 flex-grow">{product.desc}</p>
+        <h3 className="font-heading text-xl font-bold text-primary mb-2 line-clamp-1">{product.name}</h3>
+        <p className="text-lg font-bold text-secondary mb-4">{product.price}</p>
+        <p className="text-muted-foreground text-sm mb-6 flex-grow line-clamp-3">{product.desc}</p>
+        
         <div className="space-y-2 mb-6">
-          {product.specs.map((spec: string, i: number) => (
-            <div key={i} className="flex items-center gap-2 text-xs font-medium">
-              <CheckCircle size={14} className="text-primary" /> {spec}
+          {product.specs?.map((spec: string, i: number) => (
+            <div key={i} className="flex items-center gap-2 text-xs font-medium text-slate-600">
+              <CheckCircle size={14} className="text-primary shrink-0" /> <span className="truncate">{spec}</span>
             </div>
           ))}
         </div>
-        <Button onClick={() => {
-          form.setValue('product', product.name);
-          document.getElementById('enquiry-form')?.scrollIntoView({ behavior: 'smooth' });
-        }}>Request Quote</Button>
+        
+        <Button 
+          variant="outline"
+          className="w-full border-primary text-primary hover:bg-primary hover:text-white"
+          onClick={() => {
+            form.setValue('product', product.name);
+            document.getElementById('enquiry-form')?.scrollIntoView({ behavior: 'smooth' });
+          }}
+        >
+          Request Quote
+        </Button>
       </div>
     </div>
   );

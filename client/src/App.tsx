@@ -10,7 +10,7 @@ import Market from "@/pages/market";
 import Admin from "@/pages/admin";
 import { Layout } from "@/components/layout";
 import { usePageTracking } from "@/hooks/use-page-tracking";
-import Login from "./pages/Login";
+import Login from "./pages/login";
 import { ProtectedRoute } from "./components/protected-routes"
 
 function Router() {

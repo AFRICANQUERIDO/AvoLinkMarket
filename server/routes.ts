@@ -1,82 +1,87 @@
-import { Express, Request, Response } from "express";
+import type { Express } from "express";
+import { type Server } from "http";
 import { storage } from "./storage";
-import { sendEmail } from "./mailer";
+import { insertEnquirySchema, insertProductSchema } from "@shared/schema";
 
-export async function registerRoutes(_server: any, app: Express) {
-  
-  // 1. CREATE Enquiry
-  app.post("/api/enquiries", async (req: Request, res: Response) => {
+export async function registerRoutes(httpServer: Server, app: Express) {
+
+  // --- ENQUIRIES (LEADS) ---
+app.get("/api/enquiries", async (_req, res) => {
+    const enquiries = await storage.getEnquiries();
+    res.json(enquiries);
+  });
+
+  app.post("/api/enquiries", async (req, res) => {
     try {
-      const result = await storage.createEnquiry(req.body);
-      
-      if (req.body.name && req.body.email) {
-        await sendEmail(req.body.name, req.body.email, req.body.message || "New Enquiry");
-      }
-      
-      res.status(200).json({ success: true });
-    } catch (err) {
-      console.error("POST Error:", err);
-      res.status(500).json({ error: "Failed to save enquiry" });
+      const data = insertEnquirySchema.parse(req.body);
+      await storage.createEnquiry(data);
+      res.status(201).json({ message: "Enquiry submitted" });
+    } catch (e) {
+      res.status(400).json({ error: "Invalid enquiry data" });
     }
   });
 
-  // 2. READ All Enquiries
-  app.get("/api/enquiries", async (req, res) => {
-    try {
-      const limit = parseInt(req.query.limit as string) || 50;
-      const enquiries = await storage.getEnquiries(limit);
-      res.json(enquiries); 
-    } catch (error) {
-      res.status(500).json({ message: "Failed to fetch enquiries" });
-    }
-  });
-
-  // 3. UPDATE Enquiry Status
   app.patch("/api/enquiries/:id", async (req, res) => {
     const id = parseInt(req.params.id);
     const { status } = req.body;
-
-    const allowedStatuses = ['new', 'pending', 'completed', 'archived'];
-    if (!allowedStatuses.includes(status)) {
-      return res.status(400).send("Invalid status");
-    }
-
     try {
       const updated = await storage.updateEnquiryStatus(id, status);
       res.json(updated);
-    } catch (error) {
-      res.status(404).send("Enquiry not found");
+    } catch (e) {
+      res.status(404).json({ error: "Enquiry not found" });
     }
   });
 
-  // 4. DELETE Enquiry
   app.delete("/api/enquiries/:id", async (req, res) => {
     const id = parseInt(req.params.id);
+    await storage.deleteEnquiry(id);
+    res.sendStatus(204);
+  });
+
+  // --- PRODUCTS (CATALOGUE) ---
+  app.get("/api/products", async (_req, res) => {
     try {
-      await storage.deleteEnquiry(id);
-      res.status(204).send(); 
-    } catch (error) {
-      res.status(404).send("Enquiry not found");
+      const products = await storage.getProducts();
+      res.json(products);
+    } catch (e) {
+      res.status(500).json({ error: "Failed to fetch products" });
     }
   });
 
-  // --- Analytics Routes ---
-  app.get("/api/analytics/stats", async (req, res) => {
+  app.post("/api/products", async (req, res) => {
     try {
-      const days = parseInt(req.query.days as string) || 7;
-      const stats = await storage.getVisitStats(days);
-      res.json(stats);
-    } catch (error) {
-      res.status(500).json({ error: "Failed to fetch analytics" });
+      // Validate the incoming data against our Zod schema
+      const data = insertProductSchema.parse(req.body);
+      const product = await storage.createProduct(data);
+      res.status(201).json(product);
+    } catch (e) {
+      console.error("Product Creation Error:", e);
+      res.status(400).json({ error: "Invalid product data" });
     }
   });
 
+  app.delete("/api/products/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      await storage.deleteProduct(id);
+      res.sendStatus(204);
+    } catch (e) {
+      res.status(500).json({ error: "Failed to delete product" });
+    }
+  });
+
+  // --- ANALYTICS ---
   app.post("/api/analytics/visit", async (req, res) => {
-    try {
-      await storage.trackPageVisit({ path: req.body.path });
-      res.json({ success: true });
-    } catch (err) {
-      res.status(500).json({ error: "Failed to track visit" });
+    const { path } = req.body;
+    if (path) {
+      await storage.trackPageVisit({ path });
     }
+    res.sendStatus(204);
+  });
+
+  app.get("/api/analytics/stats", async (req, res) => {
+    const days = parseInt(req.query.days as string) || 7;
+    const stats = await storage.getVisitStats(days);
+    res.json(stats);
   });
 }
