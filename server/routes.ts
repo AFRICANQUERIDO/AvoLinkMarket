@@ -2,6 +2,7 @@ import type { Express } from "express";
 import { type Server } from "http";
 import { storage } from "./storage";
 import { insertEnquirySchema, insertProductSchema } from "@shared/schema";
+import { sendLeadNotification } from "./mailer";
 
 export async function registerRoutes(httpServer: Server, app: Express) {
 
@@ -11,15 +12,28 @@ app.get("/api/enquiries", async (_req, res) => {
     res.json(enquiries);
   });
 
-  app.post("/api/enquiries", async (req, res) => {
+app.post("/api/enquiries", async (req, res) => {
+  try {
+    const data = insertEnquirySchema.parse(req.body);
+    
+    // 1. Save to database
+    const newEnquiry = await storage.createEnquiry(data);
+    
+    // 2. Trigger the Email (Imported from your mailer.ts)
+    // We use await to ensure we know if the email attempt happened
     try {
-      const data = insertEnquirySchema.parse(req.body);
-      await storage.createEnquiry(data);
-      res.status(201).json({ message: "Enquiry submitted" });
-    } catch (e) {
-      res.status(400).json({ error: "Invalid enquiry data" });
+      await sendLeadNotification(newEnquiry);
+    } catch (mailError) {
+      // We log the error but don't stop the request 
+      // because the lead is already safely in the database
+      console.error("Email notification failed:", mailError);
     }
-  });
+
+    res.status(201).json({ message: "Enquiry submitted", id: newEnquiry.id });
+  } catch (e) {
+    res.status(400).json({ error: "Invalid enquiry data" });
+  }
+});
 
   app.patch("/api/enquiries/:id", async (req, res) => {
     const id = parseInt(req.params.id);
@@ -84,4 +98,5 @@ app.get("/api/enquiries", async (_req, res) => {
     const stats = await storage.getVisitStats(days);
     res.json(stats);
   });
+
 }

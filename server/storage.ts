@@ -4,8 +4,8 @@ import { products, type Product, type InsertProduct, type Enquiry } from "@share
 // --- 1. Storage Interface Definition ---
 export interface IStorage {
   // Enquiries (Leads)
-  createEnquiry(enquiry: any): Promise<void>;
-  getEnquiries(limit?: number): Promise<Enquiry[]>;
+createEnquiry(enquiry: any): Promise<Enquiry>; 
+ getEnquiries(limit?: number): Promise<Enquiry[]>;
   updateEnquiryStatus(id: number, status: string): Promise<any>;
   deleteEnquiry(id: number): Promise<void>;
 
@@ -22,27 +22,34 @@ export interface IStorage {
 // --- 2. MSSQL Implementation ---
 export class DatabaseStorageMSSQL implements IStorage {
 
-  // --- Enquiry Methods ---
-  async createEnquiry(enquiry: any) {
-    try {
-      const pool = await poolPromise;
-      await pool.request()
-        .input("name", enquiry.name)
-        .input("email", enquiry.email)
-        .input("message", enquiry.message || "")
-        .input("company", enquiry.company)
-        .input("type", enquiry.type)
-        .input("product", enquiry.product || null)
-        .input("quantity", enquiry.quantity || null)
-        .query(`
-          INSERT INTO Enquiries (Name, Email, Message, Company, Type, Product, Quantity, Status, CreatedAt)
-          VALUES (@name, @email, @message, @company, @type, @product, @quantity, 'new', GETDATE())
-        `);
-    } catch (err) {
-      console.error("Database Insert Error:", err);
-      throw err;
-    }
+  async createEnquiry(enquiry: any): Promise<Enquiry> {
+  try {
+    const pool = await poolPromise;
+    const result = await pool.request()
+      .input("name", enquiry.name)
+      .input("email", enquiry.email)
+      .input("message", enquiry.message || "")
+      .input("company", enquiry.company)
+      .input("type", enquiry.type)
+      .input("product", enquiry.product || null)
+      .input("quantity", enquiry.quantity || null)
+      .query(`
+        INSERT INTO Enquiries (Name, Email, Message, Company, Type, Product, Quantity, Status, CreatedAt)
+        OUTPUT 
+          INSERTED.Id as id, INSERTED.Name as name, INSERTED.Email as email, 
+          INSERTED.Message as message, INSERTED.Company as company, 
+          INSERTED.Type as type, INSERTED.Product as product, 
+          INSERTED.Quantity as quantity, INSERTED.Status as status, 
+          INSERTED.CreatedAt as createdAt
+        VALUES (@name, @email, @message, @company, @type, @product, @quantity, 'new', GETDATE())
+      `);
+
+    return result.recordset[0]; // Now it returns the actual object!
+  } catch (err) {
+    console.error("Database Insert Error:", err);
+    throw err;
   }
+}
 
   async getEnquiries(limit = 50): Promise<Enquiry[]> {
     const pool = await poolPromise;
@@ -120,11 +127,12 @@ export class DatabaseStorageMSSQL implements IStorage {
   async getProducts(): Promise<Product[]> {
     const pool = await poolPromise;
     const result = await pool.request().query(`
-      SELECT 
-        Id as id, Slug as slug, Name as name, Price as price, 
-        [Desc] as [desc], Specs as specs, Badge as badge, Category as category
-      FROM Products
-    `);
+  SELECT 
+    Id as id, Slug as slug, Name as name, Price as price, 
+    [Desc] as [desc], Specs as specs, Badge as badge, 
+    Category as category, Image as image
+  FROM Products
+`);
     
     // Parse the specs JSON string back into a JS array for the frontend
     return result.recordset.map(row => ({
@@ -134,30 +142,37 @@ export class DatabaseStorageMSSQL implements IStorage {
   }
 
   async createProduct(p: InsertProduct): Promise<Product> {
-    const pool = await poolPromise;
-    const result = await pool.request()
-      .input("slug", p.slug)
-      .input("name", p.name)
-      .input("price", p.price)
-      .input("desc", p.desc)
-      .input("specs", JSON.stringify(p.specs)) // Array to String for MSSQL
-      .input("badge", p.badge || null)
-      .input("category", p.category)
-      .query(`
-        INSERT INTO Products (Slug, Name, Price, [Desc], Specs, Badge, Category)
-        OUTPUT INSERTED.Id as id, INSERTED.Slug as slug, INSERTED.Name as name, 
-               INSERTED.Price as price, INSERTED.[Desc] as [desc], 
-               INSERTED.Specs as specs, INSERTED.Badge as badge, 
-               INSERTED.Category as category
-        VALUES (@slug, @name, @price, @desc, @specs, @badge, @category)
-      `);
-    
-    const newProduct = result.recordset[0];
-    return {
-      ...newProduct,
-      specs: JSON.parse(newProduct.specs)
-    };
-  }
+  const pool = await poolPromise;
+  const result = await pool.request()
+    .input("slug", p.slug)
+    .input("name", p.name)
+    .input("price", p.price)
+    .input("desc", p.desc)
+    .input("specs", JSON.stringify(p.specs))
+    .input("badge", p.badge || null)
+    .input("category", p.category)
+    .input("image", p.image) // 1. Add the image as an input
+    .query(`
+      INSERT INTO Products (Slug, Name, Price, [Desc], Specs, Badge, Category, Image) -- 2. Add Image column here
+      OUTPUT INSERTED.Id as id, 
+             INSERTED.Slug as slug, 
+             INSERTED.Name as name, 
+             INSERTED.Price as price, 
+             INSERTED.[Desc] as [desc], 
+             INSERTED.Specs as specs, 
+             INSERTED.Badge as badge, 
+             INSERTED.Category as category,
+             INSERTED.Image as image 
+      VALUES (@slug, @name, @price, @desc, @specs, @badge, @category, @image) -- 4. Add the value variable
+    `);
+  
+  const newProduct = result.recordset[0];
+  return {
+    ...newProduct,
+    specs: typeof newProduct.specs === 'string' ? JSON.parse(newProduct.specs) : newProduct.specs,
+    // Ensure image is returned as-is
+  };
+}
 
   async deleteProduct(id: number): Promise<void> {
     const pool = await poolPromise;

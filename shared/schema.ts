@@ -36,7 +36,7 @@ export const products = pgTable("products", {
   id: serial("id").primaryKey(),
   slug: text("slug").notNull(), 
   name: text("name").notNull(),
-  image: text("image").notNull(), // <--- ADD THIS LINE
+image: text("image").notNull(),
   price: text("price").notNull(),
   desc: text("desc").notNull(),
   specs: jsonb("specs").$type<string[]>().notNull(),
