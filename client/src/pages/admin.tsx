@@ -134,6 +134,33 @@ export default function Admin() {
     },
   });
 
+  const updateProductMutation = useMutation({
+    mutationFn: async ({
+      id,
+      data,
+    }: {
+      id: number;
+      data: Partial<ProductFormValues>;
+    }) => {
+      // We format the specs back into an array if it's a string from the input
+      const formattedData = {
+        ...data,
+        specs:
+          typeof data.specs === "string"
+            ? data.specs.split(",").map((s) => s.trim())
+            : data.specs,
+      };
+      return await apiRequest("PATCH", `/api/products/${id}`, formattedData);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/products"] });
+      toast({
+        title: "Product Updated",
+        description: "Changes saved to catalogue.",
+      });
+    },
+  });
+
   const filteredEnquiries = enquiriesData.filter((enq) => {
     const matchesStatus =
       filter === "all" ? enq.status !== "archived" : enq.status === filter;
@@ -348,6 +375,28 @@ export default function Admin() {
                     key={p.id}
                     className="group overflow-hidden border-none shadow-lg hover:shadow-xl transition-all duration-300 bg-white rounded-2xl"
                   >
+                    {/* DELETE BUTTON - Top Right Corner */}
+                    <Button
+                      variant="destructive"
+                      size="icon"
+                      className="absolute top-2 right-2 z-10 opacity-0 group-hover:opacity-100 transition-opacity h-8 w-8"
+                      onClick={() => {
+                        if (
+                          confirm(
+                            `Are you sure you want to delete "${p.name}"?`,
+                          )
+                        ) {
+                          deleteProductMutation.mutate(p.id);
+                        }
+                      }}
+                      disabled={deleteProductMutation.isPending}
+                    >
+                      {deleteProductMutation.isPending ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <Trash2 size={14} />
+                      )}
+                    </Button>
                     <div className="relative h-48 overflow-hidden bg-slate-100">
                       {p.image ? (
                         <img
@@ -361,6 +410,7 @@ export default function Admin() {
                         </div>
                       )}
                     </div>
+
                     <CardContent className="p-6">
                       <p className="text-[10px] font-black uppercase tracking-tighter text-primary mb-1">
                         {p.category}
@@ -506,7 +556,7 @@ function ProductAddForm({
                 >
                   {preview || form.getValues("image") ? (
                     <img
-src={preview || form.getValues("image") || FALLBACK_IMAGE}
+                      src={preview || form.getValues("image") || FALLBACK_IMAGE}
                       alt="Preview"
                       className="w-full h-full object-cover"
                     />
