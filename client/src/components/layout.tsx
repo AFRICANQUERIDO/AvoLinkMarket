@@ -14,17 +14,17 @@ export function Layout({ children }: { children: React.ReactNode }) {
     { label: "Home", path: "/" },
     { label: "Our Products", path: "/products" },
     { label: "Market News", path: "/market" },
-   // { label: "Admin Portal (CRM)", path: "/admin" },
+    // { label: "Admin Portal (CRM)", path: "/admin" },
   ];
-const handleSearch = (query: string) => {
+  const handleSearch = (query: string) => {
     setSearchValue(query);
     const params = new URLSearchParams(window.location.search);
     if (query) params.set("search", query);
     else params.delete("search");
 
     // Update URL and notify listeners (like Admin.tsx)
-    const newPath = window.location.pathname + '?' + params.toString();
-    window.history.replaceState(null, '', newPath);
+    const newPath = window.location.pathname + "?" + params.toString();
+    window.history.replaceState(null, "", newPath);
     window.dispatchEvent(new Event("popstate"));
   };
   return (
@@ -70,18 +70,19 @@ const handleSearch = (query: string) => {
               </span>
             </div>
           </Link>
-{/* --- GLOBAL SEARCH BAR --- */}
-    <div className="hidden lg:flex relative flex-1 max-w-sm mx-8">
-      <div className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">
-        <Menu size={16} className="rotate-90 opacity-40" /> {/* Or import Search from lucide-react */}
-      </div>
-      <Input 
-        value={searchValue}
-        onChange={(e) => handleSearch(e.target.value)}
-        placeholder="Search market, products, or leads..." 
-        className="pl-10 h-10 bg-muted/50 border-none focus-visible:ring-primary/20 rounded-full"
-      />
-    </div>
+          {/* --- GLOBAL SEARCH BAR --- */}
+          <div className="hidden lg:flex relative flex-1 max-w-sm mx-8">
+            <div className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">
+              <Menu size={16} className="rotate-90 opacity-40" />{" "}
+              {/* Or import Search from lucide-react */}
+            </div>
+            <Input
+              value={searchValue}
+              onChange={(e) => handleSearch(e.target.value)}
+              placeholder="Search market, products, or leads..."
+              className="pl-10 h-10 bg-muted/50 border-none focus-visible:ring-primary/20 rounded-full"
+            />
+          </div>
           {/* Desktop Nav */}
           <nav className="hidden md:flex items-center gap-8">
             {navItems.map((item) => (
@@ -97,7 +98,7 @@ const handleSearch = (query: string) => {
                 {item.label}
               </Link>
             ))}
-          <Link
+            <Link
               href="/products#enquiry-form"
               className="bg-primary text-white px-5 py-2.5 rounded-full text-sm font-medium hover:bg-primary/90 transition-all"
             >
@@ -208,11 +209,12 @@ const handleSearch = (query: string) => {
                   </Link>
                 </li>
                 <li>
-<li>
-  <Link href="/products#enquiry-form" className="hover:text-white">
-    Contact
-  </Link>
-</li>
+                  <Link
+                    href="/products#enquiry-form"
+                    className="hover:text-white"
+                  >
+                    Contact
+                  </Link>
                 </li>
               </ul>
             </div>
@@ -236,12 +238,15 @@ const handleSearch = (query: string) => {
               </div>
             </div>
           </div>
-              <div className="border-t border-white/10 pt-8 text-center text-xs text-primary-foreground/40">
-               © 2025 AvoTrade Global Linkages. All rights reserved. 
-            <Link href="/admin" className="ml-2 hover:text-white/60 transition-colors cursor-default">
-    •
-  </Link>
-</div>
+          <div className="border-t border-white/10 pt-8 text-center text-xs text-primary-foreground/40">
+            © 2025 AvoTrade Global Linkages. All rights reserved.
+            <Link
+              href="/admin"
+              className="ml-2 hover:text-white/60 transition-colors cursor-default"
+            >
+              •
+            </Link>
+          </div>
         </div>
       </footer>
 

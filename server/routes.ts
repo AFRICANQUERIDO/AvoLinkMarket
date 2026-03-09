@@ -1,39 +1,38 @@
 import type { Express } from "express";
 import { type Server } from "http";
 import { storage } from "./storage";
-import { insertEnquirySchema, insertProductSchema } from "@shared/schema";
+import { insertEnquirySchema, insertProductSchema, Product } from "@shared/schema";
 import { sendLeadNotification } from "./mailer";
 
 export async function registerRoutes(httpServer: Server, app: Express) {
-
   // --- ENQUIRIES (LEADS) ---
-app.get("/api/enquiries", async (_req, res) => {
+  app.get("/api/enquiries", async (_req, res) => {
     const enquiries = await storage.getEnquiries();
     res.json(enquiries);
   });
 
-app.post("/api/enquiries", async (req, res) => {
-  try {
-    const data = insertEnquirySchema.parse(req.body);
-    
-    // 1. Save to database
-    const newEnquiry = await storage.createEnquiry(data);
-    
-    // 2. Trigger the Email (Imported from your mailer.ts)
-    // We use await to ensure we know if the email attempt happened
+  app.post("/api/enquiries", async (req, res) => {
     try {
-      await sendLeadNotification(newEnquiry);
-    } catch (mailError) {
-      // We log the error but don't stop the request 
-      // because the lead is already safely in the database
-      console.error("Email notification failed:", mailError);
-    }
+      const data = insertEnquirySchema.parse(req.body);
 
-    res.status(201).json({ message: "Enquiry submitted", id: newEnquiry.id });
-  } catch (e) {
-    res.status(400).json({ error: "Invalid enquiry data" });
-  }
-});
+      // 1. Save to database
+      const newEnquiry = await storage.createEnquiry(data);
+
+      // 2. Trigger the Email (Imported from your mailer.ts)
+      // We use await to ensure we know if the email attempt happened
+      try {
+        await sendLeadNotification(newEnquiry);
+      } catch (mailError) {
+        // We log the error but don't stop the request
+        // because the lead is already safely in the database
+        console.error("Email notification failed:", mailError);
+      }
+
+      res.status(201).json({ message: "Enquiry submitted", id: newEnquiry.id });
+    } catch (e) {
+      res.status(400).json({ error: "Invalid enquiry data" });
+    }
+  });
 
   app.patch("/api/enquiries/:id", async (req, res) => {
     const id = parseInt(req.params.id);
@@ -74,6 +73,22 @@ app.post("/api/enquiries", async (req, res) => {
     }
   });
 
+app.patch("/api/products/:id", async (req, res) => {
+  try {
+    const id = parseInt(req.params.id);
+    if (isNaN(id)) return res.status(400).send("Invalid ID");
+
+    // Use .partial() so that we don't need to send EVERY field to update just one
+    const validatedData = insertProductSchema.partial().parse(req.body);
+    
+    const updated = await storage.updateProduct(id, validatedData);
+    res.json(updated);
+  } catch (e) {
+    console.error("PATCH Route Error:", e);
+    res.status(400).json({ error: "Validation or Database error" });
+  }
+});
+
   app.delete("/api/products/:id", async (req, res) => {
     try {
       const id = parseInt(req.params.id);
@@ -98,5 +113,4 @@ app.post("/api/enquiries", async (req, res) => {
     const stats = await storage.getVisitStats(days);
     res.json(stats);
   });
-
 }

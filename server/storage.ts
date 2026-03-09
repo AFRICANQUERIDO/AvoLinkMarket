@@ -174,6 +174,42 @@ export class DatabaseStorageMSSQL implements IStorage {
   };
 }
 
+async updateProduct(id: number, data: Partial<InsertProduct>): Promise<Product> {
+  const pool = await poolPromise;
+  
+  // Format specs for MSSQL storage (JSON string)
+  const specsJson = data.specs ? JSON.stringify(data.specs) : null;
+
+  const result = await pool.request()
+    .input("id", id)
+    .input("name", data.name || null)
+    .input("price", data.price || null)
+    .input("image", data.image || null)
+    .input("desc", data.desc || null)
+    .input("specs", specsJson)
+    .input("category", data.category || null)
+    .query(`
+      UPDATE Products 
+      SET 
+        Name = ISNULL(@name, Name),
+        Price = ISNULL(@price, Price),
+        Image = ISNULL(@image, Image),
+        [Desc] = ISNULL(@desc, [Desc]),
+        Specs = ISNULL(@specs, Specs),
+        Category = ISNULL(@category, Category)
+      WHERE Id = @id;
+
+      SELECT * FROM Products WHERE Id = @id;
+    `);
+
+  if (result.recordset.length === 0) throw new Error("Product not found");
+  
+  const p = result.recordset[0];
+  return { 
+    ...p, 
+    specs: typeof p.Specs === 'string' ? JSON.parse(p.Specs) : p.Specs 
+  };
+}
   async deleteProduct(id: number): Promise<void> {
     const pool = await poolPromise;
     await pool.request()
