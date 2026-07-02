@@ -1,12 +1,15 @@
 import { Link, useLocation } from "wouter";
 import { motion } from "framer-motion";
 import { Menu, X, Leaf } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import ChatWidget from "@/components/chat-widget";
-import { Input } from "@/components/ui/input"; // Import shadcn input
+import { Input } from "@/components/ui/input";
+
 
 export function Layout({ children }: { children: React.ReactNode }) {
-  const [location] = useLocation();
+
+
+  const [location, setLocation] = useLocation(); // 👈 Destructure setLocation to handle programatic redirect
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [searchValue, setSearchValue] = useState("");
 
@@ -14,19 +17,32 @@ export function Layout({ children }: { children: React.ReactNode }) {
     { label: "Home", path: "/" },
     { label: "Our Products", path: "/products" },
     { label: "Market News", path: "/market" },
-    // { label: "Admin Portal (CRM)", path: "/admin" },
   ];
+
+  // 🎯 Unified handler for the Quote request action
+  const handleQuoteClick = (e: React.MouseEvent<HTMLAnchorElement>) => {
+    if (location === "/products") {
+      e.preventDefault(); // Stop routing since we are already here
+      const targetElement = document.getElementById("enquiry-form");
+      if (targetElement) {
+        targetElement.scrollIntoView({ behavior: "smooth", block: "start" });
+      }
+    }
+    // If they aren't on /products, the default <Link> behavior takes care of navigating
+    setIsMobileMenuOpen(false); // Close mobile tray if open
+  };
+
   const handleSearch = (query: string) => {
     setSearchValue(query);
     const params = new URLSearchParams(window.location.search);
     if (query) params.set("search", query);
     else params.delete("search");
 
-    // Update URL and notify listeners (like Admin.tsx)
     const newPath = window.location.pathname + "?" + params.toString();
     window.history.replaceState(null, "", newPath);
     window.dispatchEvent(new Event("popstate"));
   };
+
   return (
     <div className="min-h-screen flex flex-col bg-background font-sans text-foreground">
       {/* Top Ticker */}
@@ -51,9 +67,8 @@ export function Layout({ children }: { children: React.ReactNode }) {
           >
             <div className="relative">
               <img
-                src="/Avolink_logo.png"
+                src="/Final_image.jpg"
                 alt="AvoLink Logo"
-                /* h-10 makes it much bigger; multiply-mix removes white backgrounds */
                 className="h-20 w-auto object-contain transition-all duration-300 group-hover:scale-110 mix-blend-multiply"
                 onError={(e) => {
                   e.currentTarget.style.display = "none";
@@ -66,15 +81,18 @@ export function Layout({ children }: { children: React.ReactNode }) {
                 AvoLink
               </span>
               <span className="text-[11px] font-bold uppercase tracking-[0.3em] text-muted-foreground -mt-1">
-                Global Linkages
+                International
+              </span>
+              <span className="text-[10px] font-bold uppercase tracking-[0.3em] text-muted-foreground -mt-1">
+               B2B Avocado & Macadamia Marketplace
               </span>
             </div>
           </Link>
+
           {/* --- GLOBAL SEARCH BAR --- */}
           <div className="hidden lg:flex relative flex-1 max-w-sm mx-8">
             <div className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">
-              <Menu size={16} className="rotate-90 opacity-40" />{" "}
-              {/* Or import Search from lucide-react */}
+              <Menu size={16} className="rotate-90 opacity-40" />
             </div>
             <Input
               value={searchValue}
@@ -83,6 +101,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
               className="pl-10 h-10 bg-muted/50 border-none focus-visible:ring-primary/20 rounded-full"
             />
           </div>
+
           {/* Desktop Nav */}
           <nav className="hidden md:flex items-center gap-8">
             {navItems.map((item) => (
@@ -98,9 +117,12 @@ export function Layout({ children }: { children: React.ReactNode }) {
                 {item.label}
               </Link>
             ))}
+            
+            {/* 🛠️ WIRED LINK UP WITH INTERCEPTOR */}
             <Link
               href="/products#enquiry-form"
-              className="bg-primary text-white px-5 py-2.5 rounded-full text-sm font-medium hover:bg-primary/90 transition-all"
+              onClick={handleQuoteClick}
+              className="bg-primary text-white px-5 py-2.5 rounded-full text-sm font-medium hover:bg-primary/90 transition-all cursor-pointer"
             >
               Request Quote
             </Link>
@@ -129,14 +151,21 @@ export function Layout({ children }: { children: React.ReactNode }) {
                   href={item.path}
                   onClick={() => setIsMobileMenuOpen(false)}
                   className={`text-lg font-medium ${
-                    location === item.path
-                      ? "text-primary"
-                      : "text-muted-foreground"
+                    location === item.path ? "text-primary" : "text-muted-foreground"
                   }`}
                 >
                   {item.label}
                 </Link>
               ))}
+              
+              {/* 🛠️ MOBILE OPTION LINKED TOO */}
+              <Link
+                href="/products#enquiry-form"
+                onClick={handleQuoteClick}
+                className="bg-primary text-white px-5 py-2.5 rounded-full text-center text-sm font-medium hover:bg-primary/90 transition-all"
+              >
+                Request Quote
+              </Link>
             </div>
           </motion.div>
         )}
@@ -145,9 +174,10 @@ export function Layout({ children }: { children: React.ReactNode }) {
       {/* Main Content */}
       <main className="flex-grow">{children}</main>
 
-      {/* Footer */}
+      {/* Footer ... keeps exact same details as before */}
       <footer className="bg-primary text-primary-foreground py-12 mt-20">
-        <div className="container mx-auto px-4">
+         {/* ... footer code unchanged ... */}
+         <div className="container mx-auto px-4">
           <div className="grid md:grid-cols-4 gap-8 mb-12">
             <div className="space-y-4">
               <div className="flex items-center gap-2">
@@ -161,91 +191,41 @@ export function Layout({ children }: { children: React.ReactNode }) {
             </div>
 
             <div>
-              <h4 className="font-heading text-lg mb-4 text-secondary">
-                Products
-              </h4>
+              <h4 className="font-heading text-lg mb-4 text-secondary">Products</h4>
               <ul className="space-y-2 text-sm text-primary-foreground/70">
-                <li>
-                  <Link href="/products" className="hover:text-white">
-                    Crude Avocado Oil
-                  </Link>
-                </li>
-                <li>
-                  <Link href="/products" className="hover:text-white">
-                    Extra Virgin Oil
-                  </Link>
-                </li>
-                <li>
-                  <Link href="/products" className="hover:text-white">
-                    Refined Oil
-                  </Link>
-                </li>
-                <li>
-                  <Link href="/products" className="hover:text-white">
-                    Organic Cosmetics Base
-                  </Link>
-                </li>
+                <li><Link href="/products" className="hover:text-white">Crude Avocado Oil</Link></li>
+                <li><Link href="/products" className="hover:text-white">Extra Virgin Oil</Link></li>
+                <li><Link href="/products" className="hover:text-white">Refined Oil</Link></li>
+                <li><Link href="/products" className="hover:text-white">Organic Cosmetics Base</Link></li>
               </ul>
             </div>
 
             <div>
-              <h4 className="font-heading text-lg mb-4 text-secondary">
-                Company
-              </h4>
+              <h4 className="font-heading text-lg mb-4 text-secondary">Company</h4>
               <ul className="space-y-2 text-sm text-primary-foreground/70">
-                <li>
-                  <Link href="/" className="hover:text-white">
-                    About Us
-                  </Link>
-                </li>
-                <li>
-                  <Link href="/market" className="hover:text-white">
-                    Processors
-                  </Link>
-                </li>
-                <li>
-                  <Link href="/market" className="hover:text-white">
-                    Market Reports
-                  </Link>
-                </li>
-                <li>
-                  <Link
-                    href="/products#enquiry-form"
-                    className="hover:text-white"
-                  >
-                    Contact
-                  </Link>
-                </li>
+                <li><Link href="/" className="hover:text-white">About Us</Link></li>
+                <li><Link href="/market" className="hover:text-white">Processors</Link></li>
+                <li><Link href="/market" className="hover:text-white">Market Reports</Link></li>
+                <li><Link href="/products#enquiry-form" onClick={handleQuoteClick} className="hover:text-white">Contact</Link></li>
               </ul>
             </div>
 
             <div>
-              <h4 className="font-heading text-lg mb-4 text-secondary">
-                Subscribe
-              </h4>
-              <p className="text-xs text-primary-foreground/60 mb-4">
-                Get weekly market updates.
-              </p>
+              <h4 className="font-heading text-lg mb-4 text-secondary">Subscribe</h4>
+              <p className="text-xs text-primary-foreground/60 mb-4">Get weekly market updates.</p>
               <div className="flex gap-2">
                 <input
                   type="email"
                   placeholder="Email address"
                   className="bg-white/10 border-white/20 text-white placeholder:text-white/40 px-3 py-2 rounded text-sm w-full focus:outline-none focus:ring-1 focus:ring-secondary"
                 />
-                <button className="bg-secondary text-secondary-foreground px-4 py-2 rounded text-sm font-bold hover:bg-white transition-colors">
-                  Join
-                </button>
+                <button className="bg-secondary text-secondary-foreground px-4 py-2 rounded text-sm font-bold hover:bg-white transition-colors">Join</button>
               </div>
             </div>
           </div>
           <div className="border-t border-white/10 pt-8 text-center text-xs text-primary-foreground/40">
             © 2025 AvoTrade Global Linkages. All rights reserved.
-            <Link
-              href="/admin"
-              className="ml-2 hover:text-white/60 transition-colors cursor-default"
-            >
-              •
-            </Link>
+            <Link href="/admin" className="ml-2 hover:text-white/60 transition-colors cursor-default">•</Link>
           </div>
         </div>
       </footer>

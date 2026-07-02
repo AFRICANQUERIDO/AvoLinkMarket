@@ -1,4 +1,4 @@
-import { MessageCircle, Send, X, User, Phone } from "lucide-react";
+import { MessageCircle, Send, X, User, Sparkles } from "lucide-react";
 import { useState, useRef, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
@@ -7,7 +7,10 @@ import { Input } from "@/components/ui/input";
 export default function ChatWidget() {
   const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState<{text: string, isUser: boolean}[]>([
-    { text: "Hello! Welcome to AvoTrade. How can I help you with market linkages today?", isUser: false }
+    { 
+      text: "Hello! Welcome to Avolink International. Live agent support and real-time trade matchmaking features are coming soon!", 
+      isUser: false 
+    }
   ]);
   const [inputValue, setInputValue] = useState("");
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -25,10 +28,10 @@ export default function ChatWidget() {
     setMessages(newMessages);
     setInputValue("");
 
-    // Mock reply
+    // Teaser / Coming Soon Automatic Reply
     setTimeout(() => {
       setMessages(prev => [...prev, { 
-        text: "Thank you for your message. An agent will review your enquiry about availability and pricing shortly.", 
+        text: "Thank you for exploring this teaser! Our automated AI trade desk and processor connectivity will launch globally soon. Stay tuned!", 
         isUser: false 
       }]);
     }, 1000);
@@ -44,6 +47,14 @@ export default function ChatWidget() {
             exit={{ opacity: 0, y: 20, scale: 0.95 }}
             className="bg-white border border-border shadow-2xl rounded-2xl w-80 sm:w-96 mb-4 overflow-hidden pointer-events-auto"
           >
+            {/* 🚀 Feature Preview Banner */}
+            <div className="bg-amber-50 dark:bg-amber-950/20 px-4 py-1.5 border-b border-amber-100 dark:border-amber-900/50 flex items-center gap-2 justify-center text-center">
+              <Sparkles size={12} className="text-amber-600 dark:text-amber-400 shrink-0 animate-pulse" />
+              <span className="text-[11px] font-bold tracking-wide text-amber-700 dark:text-amber-400 uppercase">
+                Preview Mode — Feature Coming Soon
+              </span>
+            </div>
+
             {/* Chat Header */}
             <div className="bg-primary p-4 flex items-center justify-between">
               <div className="flex items-center gap-3">
@@ -51,11 +62,12 @@ export default function ChatWidget() {
                   <div className="w-10 h-10 rounded-full bg-white/10 flex items-center justify-center text-white">
                     <User size={20} />
                   </div>
-                  <div className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 border-2 border-primary rounded-full"></div>
+                  {/* Yellow pulse indicates setup/preview mode instead of green active online */}
+                  <div className="absolute bottom-0 right-0 w-3 h-3 bg-amber-500 border-2 border-primary rounded-full animate-pulse"></div>
                 </div>
                 <div>
-                  <h3 className="font-bold text-white text-sm">Support Agent</h3>
-                  <p className="text-primary-foreground/70 text-xs">Online Now</p>
+                  <h3 className="font-bold text-white text-sm">Avolink AI Assistant</h3>
+                  <p className="text-primary-foreground/70 text-xs">Preview Mode</p>
                 </div>
               </div>
               <button onClick={() => setIsOpen(false)} className="text-white/70 hover:text-white">
@@ -85,7 +97,7 @@ export default function ChatWidget() {
                 value={inputValue}
                 onChange={(e) => setInputValue(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && handleSend()}
-                placeholder="Type a message..."
+                placeholder="Ask about Avolink matchmaking..."
                 className="flex-grow focus-visible:ring-primary"
               />
               <Button size="icon" onClick={handleSend} className="bg-primary hover:bg-primary/90">
@@ -104,7 +116,7 @@ export default function ChatWidget() {
         className="bg-secondary text-secondary-foreground p-4 rounded-full shadow-lg shadow-secondary/30 flex items-center gap-2 pointer-events-auto"
       >
         {isOpen ? <X size={24} /> : <MessageCircle size={24} />}
-        {!isOpen && <span className="font-bold text-sm pr-1">Chat with us</span>}
+        {!isOpen && <span className="font-bold text-sm pr-1">Chat Preview</span>}
       </motion.button>
     </div>
   );

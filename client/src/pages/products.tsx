@@ -9,8 +9,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { Loader2, CheckCircle, ArrowLeft, SearchX, PackageOpen } from "lucide-react";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Loader2, CheckCircle, ArrowLeft, SearchX } from "lucide-react";
 import { useSearch } from "@/hooks/use-search";
 import { useQuery } from "@tanstack/react-query";
 
@@ -36,7 +36,7 @@ const sellerSchema = z.object({
 const formSchema = z.discriminatedUnion("type", [buyerSchema, sellerSchema]);
 
 export default function Products() {
-  const { query } = useSearch(); 
+  const { query, setQuery } = useSearch();
   const { toast } = useToast();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [activeTab, setActiveTab] = useState<"buyer" | "seller">("buyer");
@@ -46,31 +46,46 @@ export default function Products() {
   const { data: products = [], isLoading } = useQuery({
     queryKey: ['/api/products'],
   });
-  
+
   const queryParams = new URLSearchParams(window.location.search);
   const categoryFilter = queryParams.get("category");
 
   // 2. Optimized Filtering Logic
-  const filteredProducts = products.filter((p) => {
+  const filteredProducts = products.filter((p: any) => {
     const searchLower = query.toLowerCase();
-    const matchesSearch = 
+    const matchesSearch =
       p.name.toLowerCase().includes(searchLower) ||
       p.desc.toLowerCase().includes(searchLower) ||
       (p.specs && p.specs.some((spec: string) => spec.toLowerCase().includes(searchLower)));
-    
+
     return matchesSearch;
   });
 
-  const avocadoProducts = filteredProducts.filter(p => p.category === 'avocado');
-  const macadamiaProducts = filteredProducts.filter(p => p.category === 'macadamia');
+  const avocadoProducts = filteredProducts.filter((p: any) => p.category === 'avocado');
+  const macadamiaProducts = filteredProducts.filter((p: any) => p.category === 'macadamia');
 
+  // 🎯 Scroll to form anchor hash when navigating from another page
+  useEffect(() => {
+    if (window.location.hash === "#enquiry-form") {
+      const timer = setTimeout(() => {
+        const targetElement = document.getElementById("enquiry-form");
+        if (targetElement) {
+          targetElement.scrollIntoView({ behavior: "smooth", block: "start" });
+        }
+      }, 150);
+      return () => clearTimeout(timer);
+    }
+  }, []);
+
+  // 🎯 Scroll to category sections when category query filter is present
   useEffect(() => {
     if (categoryFilter) {
       const element = document.getElementById(`${categoryFilter}-section`);
       if (element) {
-        setTimeout(() => {
+        const timer = setTimeout(() => {
           element.scrollIntoView({ behavior: 'smooth', block: 'start' });
         }, 100);
+        return () => clearTimeout(timer);
       }
     }
   }, [categoryFilter]);
@@ -109,7 +124,7 @@ export default function Products() {
   return (
     <div className="bg-background py-16 min-h-screen">
       <div className="container mx-auto px-4">
-        
+
         {/* Header Section */}
         <div className="text-center mb-16">
           <h1 className="font-heading text-4xl md:text-5xl font-bold text-primary mb-4">
@@ -119,10 +134,13 @@ export default function Products() {
             Sourced directly from verified processors. All products undergo rigorous quality testing.
           </p>
           {(categoryFilter || query) && (
-            <Button 
-              variant="ghost" 
-              className="mt-4 text-primary" 
-              onClick={() => setLocation("/products")}
+            <Button
+              variant="ghost"
+              className="mt-4 text-primary"
+              onClick={() => {
+                // 🚀 Hard reset: Clears all memory contexts and forces a complete clean reload at the top of the page
+                window.location.href = "/products";
+              }}
             >
               <ArrowLeft size={16} className="mr-2" /> Reset View
             </Button>
@@ -211,16 +229,48 @@ export default function Products() {
                   </div>
                   {activeTab === "buyer" && (
                     <div className="grid grid-cols-2 gap-4">
-                      <FormField control={form.control} name="product" render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Product Interest</FormLabel>
-                          <Select onValueChange={field.onChange} value={field.value}>
-                            <FormControl><SelectTrigger><SelectValue placeholder="Select product" /></SelectTrigger></FormControl>
-                            <SelectContent>{products.map((p: any) => <SelectItem key={p.id} value={p.name}>{p.name}</SelectItem>)}</SelectContent>
-                          </Select>
-                          <FormMessage />
-                        </FormItem>
-                      )} />
+                      <FormField
+                        control={form.control}
+                        name="product"
+                        render={({ field }) => {
+                          const selectedProduct = products?.find((p: any) => p.id.toString() === field.value);
+
+                          return (
+                            <FormItem>
+                              <FormLabel>Product Interest</FormLabel>
+                              <Select onValueChange={field.onChange} value={field.value}>
+                                <FormControl>
+                                  <SelectTrigger>
+                                    <SelectValue placeholder="Select product">
+                                      {selectedProduct ? selectedProduct.name : "Select product"}
+                                    </SelectValue>
+                                  </SelectTrigger>
+                                </FormControl>
+                                <SelectContent className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xl max-h-[300px] overflow-y-auto z-[999] w-[var(--radix-select-trigger-width)]">
+                                  {products.map((p: any) => (
+                                    <SelectItem key={p.id} value={p.id.toString()}>
+                                      <div className="flex items-center justify-between w-full gap-8 text-left min-w-[260px] py-1">
+                                        <div className="flex flex-col gap-0.5">
+                                          <span className="font-semibold text-sm text-slate-900 dark:text-slate-100 leading-tight">
+                                            {p.name}
+                                          </span>
+                                          <span className="text-[11px] text-slate-400 capitalize tracking-wide font-medium">
+                                            {p.category}
+                                          </span>
+                                        </div>
+                                        <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400 shrink-0 bg-emerald-50 dark:bg-emerald-950/50 px-2 py-0.5 rounded-md">
+                                          {typeof p.price === 'number' ? `$${p.price.toFixed(2)}` : p.price}
+                                        </span>
+                                      </div>
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                              <FormMessage />
+                            </FormItem>
+                          );
+                        }}
+                      />
                       <FormField control={form.control} name="quantity" render={({ field }) => (
                         <FormItem>
                           <FormLabel>Est. Quantity</FormLabel>
@@ -252,6 +302,7 @@ export default function Products() {
             </div>
           </div>
         </div>
+
       </div>
     </div>
   );
@@ -270,10 +321,22 @@ function ProductCard({ product, form }: { product: any, form: any }) {
             {product.badge}
           </span>
         )}
-        <div className={`w-32 h-32 rounded-full flex items-center justify-center text-4xl font-bold shadow-inner transition-transform group-hover:scale-110 
-          ${isMacadamia ? 'bg-amber-100 text-amber-700' : 'bg-green-100 text-green-700'}`}>
-          {isFresh ? '🥑' : '🫗'}
-        </div>
+        
+        {product.image ? (
+          <img 
+            src={product.image} 
+            alt={product.name}
+            className="absolute inset-0 w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+            onError={(e) => {
+              (e.target as HTMLElement).style.display = 'none';
+            }}
+          />
+        ) : (
+          <div className={`w-32 h-32 rounded-full flex items-center justify-center text-4xl font-bold shadow-inner transition-transform group-hover:scale-110 
+            ${isMacadamia ? 'bg-amber-100 text-amber-700' : 'bg-green-100 text-green-700'}`}>
+            {isFresh ? '🥑' : '🫗'}
+          </div>
+        )}
       </div>
       <div className="p-6 flex-grow flex flex-col">
         <h3 className="font-heading text-xl font-bold text-primary mb-2 line-clamp-1">{product.name}</h3>
@@ -292,7 +355,7 @@ function ProductCard({ product, form }: { product: any, form: any }) {
           variant="outline"
           className="w-full border-primary text-primary hover:bg-primary hover:text-white"
           onClick={() => {
-            form.setValue('product', product.name);
+            form.setValue('product', product.id.toString());
             document.getElementById('enquiry-form')?.scrollIntoView({ behavior: 'smooth' });
           }}
         >

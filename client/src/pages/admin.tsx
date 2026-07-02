@@ -56,6 +56,17 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 
 const FALLBACK_IMAGE =
   "https://images.unsplash.com/photo-1543257580-7269da771bf1?q=80&w=800&auto=format&fit=crop";
@@ -74,10 +85,10 @@ type ProductFormValues = z.infer<typeof productSchema>;
 
 export default function Admin() {
   const queryClient = useQueryClient();
-  const { toast } = useToast();
   const [filter, setFilter] = useState<string>("all");
   const [typeFilter, setTypeFilter] = useState<string>("all");
   const [showAddForm, setShowAddForm] = useState(false);
+  const [openEditId, setOpenEditId] = useState<number | null>(null);
 
   // --- QUERIES ---
   const { data: enquiriesData = [] } = useQuery<Enquiry[]>({
@@ -87,7 +98,10 @@ export default function Admin() {
       return res.json();
     },
   });
-
+const filteredEnquiries = enquiriesData.filter((enq) => {
+  if (filter === "all") return true;
+  return enq.status === filter;
+});
   const { data: products = [] } = useQuery<Product[]>({
     queryKey: ["/api/products"],
   });
@@ -103,24 +117,27 @@ export default function Admin() {
     },
   });
 
-  const addProductMutation = useMutation({
-    mutationFn: async (values: ProductFormValues) => {
-      const formattedData = {
-        ...values,
-        slug: values.name
-          .toLowerCase()
-          .replace(/ /g, "-")
-          .replace(/[^\w-]+/g, ""),
-        specs: values.specs.split(",").map((s) => s.trim()),
-      };
-      return await apiRequest("POST", "/api/products", formattedData);
-    },
-    onSuccess: () => {
-      toast({ title: "✅ Product Published" });
-      setShowAddForm(false);
-      queryClient.invalidateQueries({ queryKey: ["/api/products"] });
-    },
-  });
+const addProductMutation = useMutation({
+  mutationFn: async (values: ProductFormValues) => {
+    // Generate a short random string to guarantee slug uniqueness
+    const uniqueId = Math.random().toString(36).substring(2, 7); 
+    
+    const formattedData = {
+      ...values,
+      slug: values.name
+        .toLowerCase()
+        .replace(/ /g, "-")
+        .replace(/[^\w-]+/g, "") + `-${uniqueId}`, // e.g., premium-avocado-x7f2a
+      specs: values.specs.split(",").map((s) => s.trim()),
+    };
+    return await apiRequest("POST", "/api/products", formattedData);
+  },
+  onSuccess: () => {
+    toast({ title: "✅ Product Published" });
+    setShowAddForm(false);
+    queryClient.invalidateQueries({ queryKey: ["/api/products"] });
+  },
+});
 
   const updateProductMutation = useMutation({
     mutationFn: async ({
@@ -147,6 +164,7 @@ export default function Admin() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/products"] });
+      setOpenEditId(null);
       toast({
         title: "Success",
         description: "Product updated successfully",
@@ -162,24 +180,26 @@ export default function Admin() {
     },
   });
 
-  const deleteProductMutation = useMutation({
-    mutationFn: async (id: number) => {
-      await apiRequest("DELETE", `/api/products/${id}`);
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/products"] });
-      toast({ title: "Product removed" });
-    },
-  });
-  const [openEditId, setOpenEditId] = useState<number | null>(null);
-
-  const filteredEnquiries = enquiriesData.filter((enq) => {
-    const matchesStatus =
-      filter === "all" ? enq.status !== "archived" : enq.status === filter;
-    const matchesType = typeFilter === "all" ? true : enq.type === typeFilter;
-    return matchesStatus && matchesType;
-  });
-
+const deleteProductMutation = useMutation({
+  mutationFn: async ({ id }: { id: number; name: string }) => {
+    await apiRequest("DELETE", `/api/products/${id}`);
+  },
+  onSuccess: (_data, variables) => {
+    queryClient.invalidateQueries({ queryKey: ["/api/products"] });
+    toast({ 
+      title: "Product Removed 🗑️",
+      description: `"${variables.name}" has been permanently deleted from the catalogue.`,
+    });
+  },
+  onError: (error) => {
+    toast({
+      title: "Deletion Failed",
+      description: "Could not remove the product. Please try again.",
+      variant: "destructive",
+    });
+    console.error("Delete Error:", error);
+  }
+});
   const buyerCount = enquiriesData.filter((e) => e.type === "buyer").length;
   const sellerCount = enquiriesData.filter((e) => e.type === "seller").length;
 
@@ -474,22 +494,46 @@ export default function Admin() {
                           </Dialog>
 
                           {/* DELETE BUTTON */}
-                          <Button
-                            size="sm"
-                            variant="destructive"
-                            className="h-8 px-3 text-xs"
-                            onClick={() =>
-                              confirm(`Delete ${p.name}?`) &&
-                              deleteProductMutation.mutate(p.id)
-                            }
-                            disabled={deleteProductMutation.isPending}
-                          >
-                            {deleteProductMutation.isPending ? (
-                              <Loader2 className="h-3 w-3 animate-spin" />
-                            ) : (
-                              <Trash2 size={14} />
-                            )}
-                          </Button>
+                          {/* CUSTOM DELETE CONFIRMATION DIALOG */}
+                          <AlertDialog>
+                            <AlertDialogTrigger asChild>
+                              <Button
+                                size="sm"
+                                variant="destructive"
+                                className="h-8 px-3 text-xs"
+                                disabled={deleteProductMutation.isPending}
+                              >
+                                {deleteProductMutation.isPending ? (
+                                  <Loader2 className="h-3 w-3 animate-spin" />
+                                ) : (
+                                  <>
+                                    <Trash2 size={14} className="mr-1" /> Delete
+                                  </>
+                                )}
+                              </Button>
+                            </AlertDialogTrigger>
+                            <AlertDialogContent>
+                              <AlertDialogHeader>
+                                <AlertDialogTitle className="flex items-center gap-2 text-destructive">
+                                  ⚠️ Are you absolutely sure?
+                                </AlertDialogTitle>
+                                <AlertDialogDescription>
+                                  This action cannot be undone. This will permanently remove{" "}
+                                  <strong className="text-slate-900">"{p.name}"</strong> and its
+                                  associated technical specs from the marketplace catalogue.
+                                </AlertDialogDescription>
+                              </AlertDialogHeader>
+                              <AlertDialogFooter>
+                                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                <AlertDialogAction
+                                  className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                                  onClick={() => deleteProductMutation.mutate({ id: p.id, name: p.name })}
+                                >
+                                  Yes, Delete Product
+                                </AlertDialogAction>
+                              </AlertDialogFooter>
+                            </AlertDialogContent>
+                          </AlertDialog>
                         </td>
                       </tr>
                     ))

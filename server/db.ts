@@ -1,27 +1,23 @@
-// server/db.ts
-import sql from "mssql";
+import { Pool } from "pg";
 import dotenv from "dotenv";
 
 dotenv.config();
 
-// Fully typed config for MSSQL
-const config: sql.config = {
-  server: process.env.DB_SERVER as string,       // e.g., JANEQUE
-  database: process.env.DB_DATABASE as string,   // e.g., avolink_db
-  user: process.env.DB_USER as string,           // SQL login username
-  password: process.env.DB_PASSWORD as string,   // SQL login password
-  port: Number(process.env.DB_PORT) || 1433,
-  options: {
-    encrypt: false,                              // true if Azure
-    trustServerCertificate: true,               // allows local self-signed cert
-    instanceName: process.env.DB_INSTANCE || "SQLEXPRESS", // your instance
-  },
-};
+export const pool = new Pool({
+  user: process.env.DB_USER, 
+  host: process.env.DB_HOST,
+  database: process.env.DB_NAME,
+  password: process.env.DB_PASSWORD, 
+  port: process.env.DB_PORT ? parseInt(process.env.DB_PORT) : 6543,
+  ssl: {
+    rejectUnauthorized: false
+  }
+});
 
-// Create a reusable pool
-export const poolPromise: Promise<sql.ConnectionPool> = sql.connect(config)
-  .then(pool => {
-    console.log("✅ Connected to MSSQL!");
+export const poolPromise = pool.connect()
+  .then(client => {
+    console.log("✅ Connected to Supabase PostgreSQL permanently and securely!");
+    client.release();
     return pool;
   })
   .catch(err => {
