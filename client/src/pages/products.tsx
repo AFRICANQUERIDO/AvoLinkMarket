@@ -65,30 +65,41 @@ export default function Products() {
   const macadamiaProducts = filteredProducts.filter((p: any) => p.category === 'macadamia');
 
   // 🎯 Scroll to form anchor hash when navigating from another page
-  useEffect(() => {
-    if (window.location.hash === "#enquiry-form") {
-      const timer = setTimeout(() => {
-        const targetElement = document.getElementById("enquiry-form");
-        if (targetElement) {
-          targetElement.scrollIntoView({ behavior: "smooth", block: "start" });
-        }
-      }, 150);
-      return () => clearTimeout(timer);
-    }
-  }, []);
-
-  // 🎯 Scroll to category sections when category query filter is present
-  useEffect(() => {
-    if (categoryFilter) {
-      const element = document.getElementById(`${categoryFilter}-section`);
-      if (element) {
-        const timer = setTimeout(() => {
-          element.scrollIntoView({ behavior: 'smooth', block: 'start' });
-        }, 100);
-        return () => clearTimeout(timer);
+useEffect(() => {
+  // ONLY scroll down if the URL specifically ends in #enquiry-form
+  if (window.location.hash === "#enquiry-form") {
+    const timer = setTimeout(() => {
+      const targetElement = document.getElementById("enquiry-form");
+      if (targetElement) {
+        targetElement.scrollIntoView({ behavior: "smooth", block: "start" });
       }
-    }
-  }, [categoryFilter]);
+    }, 150);
+    return () => clearTimeout(timer);
+  }
+}, []);
+
+  // 🎯 Updated Scroll Tracker: Safely fires ONLY after items stop loading
+ useEffect(() => {
+  if (categoryFilter && !isLoading) {
+    // 1. Wait a brief frame for the DOM layout to settle its heights
+    const frameTimer = requestAnimationFrame(() => {
+      // 2. Introduce a minor delay so the user registers they changed pages
+      const scrollTimer = setTimeout(() => {
+        const element = document.getElementById(`${categoryFilter}-section`);
+        if (element) {
+          element.scrollIntoView({ 
+            behavior: 'smooth', 
+            block: 'start' 
+          });
+        }
+      }, 200); // 200ms gives a perfect visual pause before sliding
+
+      return () => clearTimeout(scrollTimer);
+    });
+
+    return () => cancelAnimationFrame(frameTimer);
+  }
+}, [categoryFilter, isLoading]);
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -138,7 +149,6 @@ export default function Products() {
               variant="ghost"
               className="mt-4 text-primary"
               onClick={() => {
-                // 🚀 Hard reset: Clears all memory contexts and forces a complete clean reload at the top of the page
                 window.location.href = "/products";
               }}
             >

@@ -17,23 +17,43 @@ function Router() {
   usePageTracking();
   
   return (
-    <Layout>
-      <Switch>
-        <Route path="/" component={Home} />
-        <Route path="/products" component={Products} />
-        
-        {/* Combine the market routes into ONE. 
-            The key={window.location.search} forces a full remount 
-            whenever the URL parameters change (e.g., during a reset). */}
-        <Route path="/market">
-          {() => <Market key={window.location.search} />}
-        </Route>
+    <Switch>
+      {/* 🔒 Auth Pages (Completely clean, no client website navigation layout) */}
+      <Route path="/login" component={Login} />
+      <ProtectedRoute path="/admin" component={Admin} />
 
-        <Route path="/login" component={Login} />
-        <ProtectedRoute path="/admin" component={Admin} />
-        <Route component={NotFound} />
-      </Switch>
-    </Layout>
+      {/* 🌐 Public Website Routes wrapped in your public Layout */}
+      <Route path="/">
+        {() => (
+          <Layout>
+            <Home />
+          </Layout>
+        )}
+      </Route>
+      <Route path="/products">
+        {() => (
+          <Layout>
+            <Products />
+          </Layout>
+        )}
+      </Route>
+      <Route path="/market">
+        {() => (
+          <Layout>
+            <Market key={window.location.search} />
+          </Layout>
+        )}
+      </Route>
+
+      {/* 🚫 Fallback 404 */}
+      <Route>
+        {() => (
+          <Layout>
+            <NotFound />
+          </Layout>
+        )}
+      </Route>
+    </Switch>
   );
 }
 function App() {

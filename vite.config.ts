@@ -43,7 +43,6 @@ export default defineConfig({
   server: {
     host: "0.0.0.0",
     allowedHosts: true,
-    // ADD THIS PROXY BLOCK HERE:
     proxy: {
       "/api": {
         target: "http://localhost:5000",

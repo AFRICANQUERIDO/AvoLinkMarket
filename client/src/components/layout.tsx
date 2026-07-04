@@ -4,14 +4,13 @@ import { Menu, X, Leaf } from "lucide-react";
 import { useEffect, useState } from "react";
 import ChatWidget from "@/components/chat-widget";
 import { Input } from "@/components/ui/input";
-
+import { useToast } from "@/hooks/use-toast"; // 👈 1. Imported toast hook
 
 export function Layout({ children }: { children: React.ReactNode }) {
-
-
-  const [location, setLocation] = useLocation(); // 👈 Destructure setLocation to handle programatic redirect
+  const [location, setLocation] = useLocation();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [searchValue, setSearchValue] = useState("");
+  const { toast } = useToast(); // 👈 2. Initialized toast method context
 
   const navItems = [
     { label: "Home", path: "/" },
@@ -19,17 +18,29 @@ export function Layout({ children }: { children: React.ReactNode }) {
     { label: "Market News", path: "/market" },
   ];
 
+  // 🔒 Hidden Admin Shortcut: Press Ctrl + Shift + A anywhere on the site to teleport to the login screen
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.ctrlKey && e.shiftKey && e.key.toLowerCase() === "a") {
+        e.preventDefault();
+        setLocation("/login");
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [setLocation]);
+
   // 🎯 Unified handler for the Quote request action
   const handleQuoteClick = (e: React.MouseEvent<HTMLAnchorElement>) => {
     if (location === "/products") {
-      e.preventDefault(); // Stop routing since we are already here
+      e.preventDefault();
       const targetElement = document.getElementById("enquiry-form");
       if (targetElement) {
         targetElement.scrollIntoView({ behavior: "smooth", block: "start" });
       }
     }
-    // If they aren't on /products, the default <Link> behavior takes care of navigating
-    setIsMobileMenuOpen(false); // Close mobile tray if open
+    setIsMobileMenuOpen(false);
   };
 
   const handleSearch = (query: string) => {
@@ -66,6 +77,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
             className="flex items-center gap-4 group cursor-pointer py-2"
           >
             <div className="relative">
+              
               <img
                 src="/Final_image.jpg"
                 alt="AvoLink Logo"
@@ -84,7 +96,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
                 International
               </span>
               <span className="text-[10px] font-bold uppercase tracking-[0.3em] text-muted-foreground -mt-1">
-               B2B Avocado & Macadamia Marketplace
+                B2B Avocado & Macadamia Marketplace
               </span>
             </div>
           </Link>
@@ -108,17 +120,15 @@ export function Layout({ children }: { children: React.ReactNode }) {
               <Link
                 key={item.path}
                 href={item.path}
-                className={`text-sm font-medium transition-colors hover:text-secondary ${
-                  location === item.path
-                    ? "text-primary font-semibold"
-                    : "text-muted-foreground"
-                }`}
+                className={`text-sm font-medium transition-colors hover:text-secondary ${location === item.path
+                  ? "text-primary font-semibold"
+                  : "text-muted-foreground"
+                  }`}
               >
                 {item.label}
               </Link>
             ))}
-            
-            {/* 🛠️ WIRED LINK UP WITH INTERCEPTOR */}
+
             <Link
               href="/products#enquiry-form"
               onClick={handleQuoteClick}
@@ -150,15 +160,13 @@ export function Layout({ children }: { children: React.ReactNode }) {
                   key={item.path}
                   href={item.path}
                   onClick={() => setIsMobileMenuOpen(false)}
-                  className={`text-lg font-medium ${
-                    location === item.path ? "text-primary" : "text-muted-foreground"
-                  }`}
+                  className={`text-lg font-medium ${location === item.path ? "text-primary" : "text-muted-foreground"
+                    }`}
                 >
                   {item.label}
                 </Link>
               ))}
-              
-              {/* 🛠️ MOBILE OPTION LINKED TOO */}
+
               <Link
                 href="/products#enquiry-form"
                 onClick={handleQuoteClick}
@@ -174,59 +182,96 @@ export function Layout({ children }: { children: React.ReactNode }) {
       {/* Main Content */}
       <main className="flex-grow">{children}</main>
 
-      {/* Footer ... keeps exact same details as before */}
+      {/* Footer */}
       <footer className="bg-primary text-primary-foreground py-12 mt-20">
-         {/* ... footer code unchanged ... */}
-         <div className="container mx-auto px-4">
-          <div className="grid md:grid-cols-4 gap-8 mb-12">
-            <div className="space-y-4">
+        <div className="container mx-auto px-4">
+          
+          {/* Top Row: Brand Info + Newsletter Grid */}
+          <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-8 pb-8 border-b border-white/10">
+            <div className="max-w-xl space-y-2">
               <div className="flex items-center gap-2">
-                <Leaf className="text-secondary" />
-                <span className="font-heading text-2xl font-bold">AvoLink</span>
+                <Leaf className="text-secondary shrink-0" />
+                <span className="font-heading text-xl font-bold tracking-tight">AvoLink International</span>
               </div>
               <p className="text-primary-foreground/70 text-sm leading-relaxed">
-                Linking premium African avocado processors to the global market.
+                Linking premium African avocado and macadamia processors to the global market. 
                 Quality, transparency, and sustainable trade.
               </p>
             </div>
 
-            <div>
-              <h4 className="font-heading text-lg mb-4 text-secondary">Products</h4>
-              <ul className="space-y-2 text-sm text-primary-foreground/70">
-                <li><Link href="/products" className="hover:text-white">Crude Avocado Oil</Link></li>
-                <li><Link href="/products" className="hover:text-white">Extra Virgin Oil</Link></li>
-                <li><Link href="/products" className="hover:text-white">Refined Oil</Link></li>
-                <li><Link href="/products" className="hover:text-white">Organic Cosmetics Base</Link></li>
-              </ul>
-            </div>
+            <div className="w-full md:max-w-sm shrink-0">
+              <h4 className="font-heading text-sm font-bold tracking-wider uppercase text-secondary mb-2">Subscribe</h4>
+              <form
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  const formTarget = e.currentTarget as HTMLFormElement;
+                  const inputElement = formTarget.elements.namedItem("subscriberEmail") as HTMLInputElement;
 
-            <div>
-              <h4 className="font-heading text-lg mb-4 text-secondary">Company</h4>
-              <ul className="space-y-2 text-sm text-primary-foreground/70">
-                <li><Link href="/" className="hover:text-white">About Us</Link></li>
-                <li><Link href="/market" className="hover:text-white">Processors</Link></li>
-                <li><Link href="/market" className="hover:text-white">Market Reports</Link></li>
-                <li><Link href="/products#enquiry-form" onClick={handleQuoteClick} className="hover:text-white">Contact</Link></li>
-              </ul>
-            </div>
+                  toast({
+                    title: "Newsletter Coming Soon! 🚀",
+                    description: "We are finalizing our market intelligence reports. We'll let you know when they go live!",
+                  });
 
-            <div>
-              <h4 className="font-heading text-lg mb-4 text-secondary">Subscribe</h4>
-              <p className="text-xs text-primary-foreground/60 mb-4">Get weekly market updates.</p>
-              <div className="flex gap-2">
+                  if (inputElement) inputElement.value = "";
+                }}
+                className="flex gap-2"
+              >
                 <input
                   type="email"
-                  placeholder="Email address"
-                  className="bg-white/10 border-white/20 text-white placeholder:text-white/40 px-3 py-2 rounded text-sm w-full focus:outline-none focus:ring-1 focus:ring-secondary"
+                  name="subscriberEmail"
+                  required
+                  placeholder="Email address for updates..."
+                  className="bg-white/10 border border-white/20 text-white placeholder:text-white/40 px-3 py-2 rounded text-sm w-full focus:outline-none focus:ring-1 focus:ring-secondary"
                 />
-                <button className="bg-secondary text-secondary-foreground px-4 py-2 rounded text-sm font-bold hover:bg-white transition-colors">Join</button>
-              </div>
+                <button
+                  type="submit"
+                  className="bg-secondary text-secondary-foreground px-4 py-2 rounded text-sm font-bold hover:bg-white transition-colors flex items-center justify-center min-w-[64px]"
+                >
+                  Join
+                </button>
+              </form>
             </div>
           </div>
-          <div className="border-t border-white/10 pt-8 text-center text-xs text-primary-foreground/40">
-            © 2025 AvoTrade Global Linkages. All rights reserved.
-            <Link href="/admin" className="ml-2 hover:text-white/60 transition-colors cursor-default">•</Link>
+
+          {/* Bottom Row: Horizontal Links + Copyright */}
+          <div className="flex flex-col sm:flex-row justify-between items-center gap-4 pt-8 text-sm">
+            
+            {/* Horizontal Links Navigation */}
+            <nav className="flex flex-wrap justify-center items-center gap-x-8 gap-y-2 text-primary-foreground/70">
+              <Link
+                href="/products"
+                onClick={(e) => {
+                  setIsMobileMenuOpen(false);
+                  if (window.location.pathname === "/products") {
+                    e.preventDefault();
+                    window.history.replaceState(null, "", "/products");
+                    window.dispatchEvent(new Event("popstate"));
+                    window.scrollTo({ top: 0, behavior: "smooth" });
+                  } else {
+                    window.scrollTo(0, 0);
+                  }
+                }}
+                className="hover:text-white transition-colors cursor-pointer"
+              >
+                Products
+              </Link>
+              <Link href="/" className="hover:text-white transition-colors">
+                About Us
+              </Link>
+              <Link 
+                href="/products#enquiry-form" 
+                onClick={handleQuoteClick} 
+                className="hover:text-white transition-colors"
+              >
+                Contact
+              </Link>
+            </nav>
+
+            <div className="text-xs text-primary-foreground/40 text-center sm:text-right">
+              © {new Date().getFullYear()} AvoTrade Global Linkages. All rights reserved.
+            </div>
           </div>
+
         </div>
       </footer>
 
