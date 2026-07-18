@@ -1,60 +1,33 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useForm } from "react-hook-form";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
-  Users,
   MousePointerClick,
-  TrendingUp,
   LogOut,
-  MoreVertical,
   Trash2,
   Plus,
   Loader2,
   ShoppingCart,
   Tractor,
-  List,
+  Package,
+  CalendarDays,
   Edit,
+  MoreVertical,
 } from "lucide-react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import type { Enquiry, Product } from "@shared/schema";
 import { Button } from "@/components/ui/button";
 import { apiRequest } from "@/lib/queryClient";
-import { toast, useToast } from "@/hooks/use-toast";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-  DropdownMenuSeparator,
-} from "@/components/ui/dropdown-menu";
+import { toast } from "@/hooks/use-toast";
+import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Input } from "@/components/ui/input";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { Textarea } from "@/components/ui/textarea";
-import {
-  Form,
-  FormControl,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormMessage,
-  FormDescription,
-} from "@/components/ui/form";
 import {
   Dialog,
   DialogContent,
   DialogDescription,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from "@/components/ui/dialog";
 import {
   AlertDialog,
@@ -65,45 +38,92 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-  AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Badge } from "@/components/ui/badge";
 
-const FALLBACK_IMAGE =
-  "https://images.unsplash.com/photo-1543257580-7269da771bf1?q=80&w=800&auto=format&fit=crop";
+const FALLBACK_IMAGE = "https://images.unsplash.com/photo-1543257580-7269da771bf1?q=80&w=800&auto=format&fit=crop";
 
 const productSchema = z.object({
-  name: z.string().min(3),
-  price: z.string().min(1),
-  image: z.string().min(1, "Please upload an image"),
-  desc: z.string().min(10),
-  specs: z.string().min(1),
-  badge: z.string().optional(),
+  name: z.string().min(1, "Product name is required"),
+  price: z.string().min(1, "Price range is required"),
+  image: z.string().min(1, "Product image is required"),
+  desc: z.string().min(1, "Description is required"),
+  specs: z.string().optional(),
   category: z.enum(["avocado", "macadamia"]),
 });
 
 type ProductFormValues = z.infer<typeof productSchema>;
+type ProductApiPayload = Omit<ProductFormValues, "specs"> & {
+  slug?: string;
+  specs: string[];
+};
 
 export default function Admin() {
   const queryClient = useQueryClient();
   const [filter, setFilter] = useState<string>("all");
-  const [typeFilter, setTypeFilter] = useState<string>("all");
   const [showAddForm, setShowAddForm] = useState(false);
-  const [openEditId, setOpenEditId] = useState<number | null>(null);
+  const [editingProduct, setEditingProduct] = useState<Product | null>(null);
+  const [deleteProductId, setDeleteProductId] = useState<number | null>(null);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+
+  // --- PAGINATION STATE ---
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 5;
+
+  useEffect(() => {
+    const handleVisitTracked = (event: StorageEvent) => {
+      if (event.key === "avolink:visit-tracked") {
+        queryClient.invalidateQueries({ queryKey: ["/api/analytics/stats"] });
+      }
+    };
+
+    window.addEventListener("storage", handleVisitTracked);
+    return () => window.removeEventListener("storage", handleVisitTracked);
+  }, [queryClient]);
+
+  type DailyVisit = { date: string; count: number };
+  type AnalyticsStats = {
+    totalVisits: number;
+    totalEnquiries: number;
+    dailyVisits: DailyVisit[];
+  };
 
   // --- QUERIES ---
+  const { data: stats, isFetching: isStatsFetching } = useQuery<AnalyticsStats>({
+    queryKey: ["/api/analytics/stats"],
+    queryFn: () => fetch("/api/analytics/stats").then((res) => res.json()),
+    refetchInterval: 3000,
+    refetchOnWindowFocus: true,
+    refetchOnMount: true,
+  });
+
   const { data: enquiriesData = [] } = useQuery<Enquiry[]>({
     queryKey: ["enquiries"],
     queryFn: async () => {
       const res = await fetch("/api/enquiries");
+      if (!res.ok) throw new Error("Failed to load enquiries");
       return res.json();
     },
   });
-const filteredEnquiries = enquiriesData.filter((enq) => {
-  if (filter === "all") return true;
-  return enq.status === filter;
-});
+
   const { data: products = [] } = useQuery<Product[]>({
     queryKey: ["/api/products"],
+    queryFn: async () => {
+      const res = await fetch("/api/products");
+      if (!res.ok) throw new Error("Failed to load products");
+      return res.json();
+    },
   });
 
   // --- MUTATIONS ---
@@ -117,91 +137,119 @@ const filteredEnquiries = enquiriesData.filter((enq) => {
     },
   });
 
-const addProductMutation = useMutation({
-  mutationFn: async (values: ProductFormValues) => {
-    // Generate a short random string to guarantee slug uniqueness
-    const uniqueId = Math.random().toString(36).substring(2, 7); 
-    
-    const formattedData = {
-      ...values,
-      slug: values.name
-        .toLowerCase()
-        .replace(/ /g, "-")
-        .replace(/[^\w-]+/g, "") + `-${uniqueId}`, // e.g., premium-avocado-x7f2a
-      specs: values.specs.split(",").map((s) => s.trim()),
-    };
-    return await apiRequest("POST", "/api/products", formattedData);
-  },
-  onSuccess: () => {
-    toast({ title: "✅ Product Published" });
-    setShowAddForm(false);
-    queryClient.invalidateQueries({ queryKey: ["/api/products"] });
-  },
-});
-
-  const updateProductMutation = useMutation({
-    mutationFn: async ({
-      id,
-      data,
-    }: {
-      id: number;
-      data: ProductFormValues;
-    }) => {
-      // 1. Ensure specs is an array before sending
-      // 2. We only send the fields that actually have values
-      const formattedData = {
-        ...data,
-        specs:
-          typeof data.specs === "string"
-            ? data.specs
-                .split(",")
-                .map((s) => s.trim())
-                .filter(Boolean)
-            : data.specs,
-      };
-
-      return await apiRequest("PATCH", `/api/products/${id}`, formattedData);
-    },
+  const deleteProductMutation = useMutation({
+    mutationFn: async ({ id }: { id: number }) => await apiRequest("DELETE", `/api/products/${id}`),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/products"] });
-      setOpenEditId(null);
-      toast({
-        title: "Success",
-        description: "Product updated successfully",
-      });
+      setDeleteProductId(null);
+      setIsDeleteDialogOpen(false);
+      toast({ title: "Product Removed 🗑️" });
     },
-    onError: (error) => {
+    onError: (error: any) => {
       toast({
-        title: "Update Failed",
-        description: "Check console for details",
+        title: "Failed to delete product",
+        description: error?.message || "Please try again or refresh the page.",
         variant: "destructive",
       });
-      console.error("Update Error:", error);
+      console.error("Delete product error:", error);
     },
   });
 
-const deleteProductMutation = useMutation({
-  mutationFn: async ({ id }: { id: number; name: string }) => {
-    await apiRequest("DELETE", `/api/products/${id}`);
-  },
-  onSuccess: (_data, variables) => {
-    queryClient.invalidateQueries({ queryKey: ["/api/products"] });
-    toast({ 
-      title: "Product Removed 🗑️",
-      description: `"${variables.name}" has been permanently deleted from the catalogue.`,
-    });
-  },
-  onError: (error) => {
-    toast({
-      title: "Deletion Failed",
-      description: "Could not remove the product. Please try again.",
-      variant: "destructive",
-    });
-    console.error("Delete Error:", error);
-  }
-});
+const slugify = (value: string) => {
+  if (!value || typeof value !== "string") return "";
+  return value
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/(^-|-$)/g, "");
+};
+
+const normalizeProductValues = (values: ProductFormValues): ProductApiPayload => {
+  const generatedSlug = slugify(values.name);
+  return {
+    ...values,
+    // Only pass the slug if we actually generated one from a valid name
+    slug: generatedSlug || undefined, 
+    specs: values.specs ? values.specs.split(",").map((spec) => spec.trim()).filter(Boolean) : [],
+  };
+};
+  const createProductMutation = useMutation({
+    mutationFn: async (data: ProductApiPayload) => await apiRequest("POST", "/api/products", data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/products"] });
+      toast({ title: "Product published 🎉" });
+      setShowAddForm(false);
+    },
+    onError: () => {
+      toast({
+        title: "Failed to publish product",
+        description: "Check the product details and try again.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const updateProductMutation = useMutation({
+    mutationFn: async ({ id, data }: { id: number; data: ProductApiPayload }) =>
+      await apiRequest("PATCH", `/api/products/${id}`, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/products"] });
+      toast({ title: "Product updated successfully" });
+      setShowAddForm(false);
+    },
+    onError: () => {
+      toast({
+        title: "Failed to update product",
+        description: "Please verify the fields and try again.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const handleProductSubmit = (values: ProductFormValues) => {
+    const data = normalizeProductValues(values);
+
+    if (editingProduct) {
+      updateProductMutation.mutate({ id: editingProduct.id, data });
+      return;
+    }
+
+    createProductMutation.mutate(data);
+  };
+
+  const filteredEnquiries = filter === "all" ? enquiriesData : enquiriesData.filter((e) => e.status === filter);
   const buyerCount = enquiriesData.filter((e) => e.type === "buyer").length;
   const sellerCount = enquiriesData.filter((e) => e.type === "seller").length;
+  const totalProductCount = products.length;
+  const avocadoProductCount = products.filter((product) => product.category === "avocado").length;
+  const macadamiaProductCount = products.filter((product) => product.category === "macadamia").length;
+
+  const dailyVisits: DailyVisit[] = stats?.dailyVisits ?? [];
+  const todayVisitCount = dailyVisits.length ? dailyVisits[dailyVisits.length - 1].count : 0;
+  const dailyAverage = dailyVisits.length
+    ? Math.round(dailyVisits.reduce((sum: number, day: DailyVisit) => sum + day.count, 0) / dailyVisits.length)
+    : 0;
+  const dailySummaryText = dailyVisits
+    .map((day: DailyVisit) => {
+      const date = new Date(day.date);
+      return `${date.toLocaleDateString(undefined, { month: "short", day: "numeric" })}: ${day.count}`;
+    })
+    .join(" · ");
+
+  const mutationsPending = createProductMutation.isPending || updateProductMutation.isPending;
+
+  // --- PAGINATION CALCULATION ---
+  const totalPages = Math.ceil(products.length / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const endIndex = startIndex + itemsPerPage;
+  const paginatedProducts = products.slice(startIndex, endIndex);
+
+  // Safety correction if items are cleared
+  useEffect(() => {
+    if (currentPage > 1 && paginatedProducts.length === 0) {
+      setCurrentPage((prev) => Math.max(prev - 1, 1));
+    }
+  }, [paginatedProducts, currentPage]);
 
   return (
     <div className="min-h-screen bg-slate-50/50 p-6 font-sans">
@@ -209,338 +257,349 @@ const deleteProductMutation = useMutation({
         {/* HEADER */}
         <div className="flex justify-between items-center mb-8 bg-white p-4 rounded-xl border shadow-sm">
           <div>
-            <h1 className="text-3xl font-bold text-primary tracking-tight">
-              Admin Portal
-            </h1>
-            <p className="text-muted-foreground text-sm">
-              Marketplace Control Center
-            </p>
+            <h1 className="text-3xl font-bold text-primary tracking-tight">Admin Portal</h1>
+            <p className="text-muted-foreground text-sm">Marketplace Control Center</p>
           </div>
-          <Button
-            variant="ghost"
-            onClick={() => (window.location.href = "/")}
-            className="hover:text-destructive"
-          >
+          <Button variant="ghost" onClick={() => (window.location.href = "/")} className="hover:text-destructive">
             <LogOut size={18} className="mr-2" /> Logout
           </Button>
         </div>
 
         {/* ANALYTICS */}
-        <div className="grid md:grid-cols-4 gap-6 mb-8">
+        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-5 gap-6 mb-8">
           <StatCard
             title="Total Visitors"
-            value="1,284"
+            value={
+              <div className="flex items-center justify-between">
+                {stats?.totalVisits || 0}
+                <button 
+                  onClick={() => queryClient.invalidateQueries({ queryKey: ["/api/analytics/stats"] })}
+                  className="hover:text-primary transition-colors"
+                >
+                  <Loader2 size={16} className={isStatsFetching ? "animate-spin" : ""} />
+                </button>
+              </div>
+            }
             icon={<MousePointerClick className="text-primary" />}
             color="primary"
           />
           <StatCard
-            title="Buyer Requests"
-            value={buyerCount}
-            icon={<ShoppingCart className="text-emerald-500" />}
-            color="emerald"
+            title="Daily Visitors"
+            value={
+              <div className="space-y-1">
+                <div>{todayVisitCount}</div>
+                <div className="text-xs font-normal text-slate-400">Today · 7-day avg {dailyAverage}</div>
+                <div className="text-xs text-slate-400 break-words">{dailySummaryText}</div>
+              </div>
+            }
+            icon={<CalendarDays className="text-sky-500" />}
+            color="sky"
           />
-          <StatCard
-            title="Seller Requests"
-            value={sellerCount}
-            icon={<Tractor className="text-indigo-500" />}
-            color="indigo"
-          />
-          <StatCard
-            title="Conversion"
-            value="4.2%"
-            icon={<TrendingUp className="text-orange-500" />}
-            color="orange"
+          <StatCard title="Buyer Requests" value={buyerCount} icon={<ShoppingCart className="text-emerald-500" />} color="emerald" />
+          <StatCard title="Seller Requests" value={sellerCount} icon={<Tractor className="text-indigo-500" />} color="indigo" />
+          <StatCard 
+            title="Products" 
+            value={
+              <div className="space-y-0.5">
+                <div>{totalProductCount}</div>
+                <div className="text-xs font-normal text-slate-400 flex gap-2">
+                  <span>Avo: {avocadoProductCount}</span>
+                  <span>Mac: {macadamiaProductCount}</span>
+                </div>
+              </div>
+            } 
+            icon={<Package className="text-orange-500" />} 
+            color="orange" 
           />
         </div>
 
         <Tabs defaultValue="leads" className="space-y-6">
           <TabsList className="bg-white border shadow-sm p-1">
-            <TabsTrigger value="leads" className="px-8">
-              Leads
-            </TabsTrigger>
-            <TabsTrigger value="products" className="px-8">
-              Catalogue
-            </TabsTrigger>
+            <TabsTrigger value="leads" className="px-8">Leads</TabsTrigger>
+            <TabsTrigger value="products" className="px-8">Catalogue</TabsTrigger>
           </TabsList>
 
-          {/* LEADS CONTENT */}
           <TabsContent value="leads">
-            <div className="flex gap-4 mb-6">
-              <div className="flex bg-slate-100 p-1 rounded-md gap-1">
-                {["all", "new", "pending", "completed"].map((f) => (
-                  <Button
-                    key={f}
-                    variant={filter === f ? "default" : "ghost"}
-                    size="sm"
-                    onClick={() => setFilter(f)}
-                    className="h-7 text-[11px] capitalize"
-                  >
-                    {f}
-                  </Button>
-                ))}
-              </div>
+            <div className="flex gap-2 mb-6">
+              {["all", "new", "pending", "completed"].map((f) => (
+                <Button 
+                  key={f} 
+                  variant={filter === f ? "default" : "outline"} 
+                  size="sm" 
+                  onClick={() => setFilter(f)} 
+                  className="capitalize"
+                >
+                  {f}
+                </Button>
+              ))}
             </div>
 
-            <Card className="shadow-sm border-none bg-white rounded-2xl overflow-hidden">
-              <CardContent className="p-0 divide-y">
-                {filteredEnquiries.map((enq) => (
-                  <div
-                    key={enq.id}
-                    className="flex items-start gap-4 p-6 hover:bg-slate-50 transition-all border-l-4 border-l-transparent hover:border-l-primary"
-                  >
-                    <div
-                      className={`w-12 h-12 rounded-full flex items-center justify-center border ${enq.type === "buyer" ? "bg-emerald-50 text-emerald-600" : "bg-indigo-50 text-indigo-600"}`}
-                    >
-                      {enq.type === "buyer" ? (
-                        <ShoppingCart size={18} />
-                      ) : (
-                        <Tractor size={18} />
-                      )}
-                    </div>
-                    <div className="flex-grow">
-                      <div className="flex justify-between">
-                        <div>
-                          <div className="flex items-center gap-2">
-                            <h4 className="font-bold">{enq.company}</h4>
-                            <span
-                              className={`text-[10px] px-2 py-0.5 rounded-full font-bold uppercase ${enq.type === "buyer" ? "bg-emerald-500 text-white" : "bg-indigo-500 text-white"}`}
-                            >
-                              {enq.type}
-                            </span>
-                          </div>
-                          <p className="text-sm text-slate-500">
-                            {enq.name} • {enq.email}
-                          </p>
-                        </div>
+            <div className="bg-white rounded-xl border shadow-sm">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Customer</TableHead>
+                    <TableHead>Type</TableHead>
+                    <TableHead>Request</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead className="text-right">Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {filteredEnquiries.map((enquiry) => (
+                    <TableRow key={enquiry.id}>
+                      <TableCell className="font-medium">
+                        <div>{enquiry.name}</div>
+                        <div className="text-xs text-muted-foreground">{enquiry.email}</div>
+                      </TableCell>
+                      <TableCell className="capitalize">{enquiry.type}</TableCell>
+                      <TableCell className="max-w-[200px] truncate">{enquiry.message}</TableCell>
+                      <TableCell>
+                        <Badge variant={enquiry.status === "new" ? "default" : "secondary"}>
+                          {enquiry.status}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-right">
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="icon">
-                              <MoreVertical size={16} />
-                            </Button>
+                            <Button variant="ghost" size="icon"><MoreVertical size={16} /></Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
-                            <DropdownMenuItem
-                              onClick={() =>
-                                updateStatusMutation.mutate({
-                                  id: enq.id,
-                                  status: "pending",
-                                })
-                              }
-                            >
-                              Mark Pending
-                            </DropdownMenuItem>
-                            <DropdownMenuItem
-                              onClick={() =>
-                                updateStatusMutation.mutate({
-                                  id: enq.id,
-                                  status: "completed",
-                                })
-                              }
-                            >
-                              Complete Deal
-                            </DropdownMenuItem>
+                            {["new", "pending", "completed"].map((status) => (
+                              <DropdownMenuItem 
+                                key={status} 
+                                onClick={() => updateStatusMutation.mutate({ id: enquiry.id, status })}
+                              >
+                                Mark as {status}
+                              </DropdownMenuItem>
+                            ))}
                           </DropdownMenuContent>
                         </DropdownMenu>
-                      </div>
-                      <div className="mt-3 p-3 rounded-lg border italic text-sm text-slate-600 bg-slate-50">
-                        "{enq.message}"
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </CardContent>
-            </Card>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
           </TabsContent>
 
-          {/* CATALOGUE CONTENT */}
-          <TabsContent value="products" className="space-y-6">
-            {/* CATALOGUE HEADER */}
-            <div className="flex justify-between items-center bg-white p-4 rounded-xl border shadow-sm">
+          <TabsContent value="products">
+            <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between mb-6">
               <div>
-                <h2 className="text-xl font-bold text-slate-900">
-                  Storefront Catalogue
-                </h2>
-                <p className="text-xs text-muted-foreground">
-                  Manage products, pricing, and technical specs
-                </p>
+                <h2 className="text-xl font-semibold">Product Catalogue</h2>
+                <p className="text-muted-foreground text-sm">Create, edit and remove marketplace products.</p>
               </div>
-
-              {/* ADD PRODUCT MODAL */}
-              <Dialog open={showAddForm} onOpenChange={setShowAddForm}>
-                <DialogTrigger asChild>
-                  <Button className="gap-2 shadow-sm">
-                    <Plus size={16} />
-                    Add New Item
-                  </Button>
-                </DialogTrigger>
-                <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-                  <DialogHeader>
-                    <DialogTitle>Create New Product Listing</DialogTitle>
-                    <DialogDescription className="sr-only">
-                      Enter the details for the new product you want to add to
-                      the inventory.
-                    </DialogDescription>
-                  </DialogHeader>
-                  <ProductAddForm
-                    onSubmit={(v) => addProductMutation.mutate(v)}
-                    isPending={addProductMutation.isPending}
-                  />
-                </DialogContent>
-              </Dialog>
+              <Button
+                onClick={() => {
+                  setEditingProduct(null);
+                  setShowAddForm(true);
+                }}
+              >
+                <Plus size={16} className="mr-2" /> Add Product
+              </Button>
             </div>
-
-            {/* PRODUCT TABLE */}
-            <div className="bg-white rounded-2xl shadow-sm overflow-hidden border border-slate-200">
-              <table className="w-full text-sm">
-                <thead className="bg-slate-50 border-b border-slate-200">
-                  <tr className="text-left text-slate-500 font-medium">
-                    <th className="p-4 font-semibold w-20">Image</th>
-                    <th className="p-4 font-semibold">Product Details</th>
-                    <th className="p-4 font-semibold">Category</th>
-                    <th className="p-4 font-semibold">Price</th>
-                    <th className="p-4 font-semibold text-right">Actions</th>
+            
+            <div className="overflow-x-auto rounded-xl border bg-white shadow-sm">
+              <table className="min-w-full divide-y divide-slate-200">
+                <thead className="bg-slate-50">
+                  <tr>
+                    <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">Name</th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">Category</th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">Price</th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">Specs</th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">Actions</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-100">
+                <tbody className="divide-y divide-slate-200">
                   {products.length === 0 ? (
                     <tr>
-                      <td colSpan={5} className="py-24 text-center">
-                        <div className="flex flex-col items-center justify-center space-y-3">
-                          {/* Using the icon you already imported */}
-                          <div className="bg-slate-50 p-4 rounded-full">
-                            <ShoppingCart
-                              size={40}
-                              className="text-slate-200"
-                            />
-                          </div>
-                          <div>
-                            <p className="text-base font-medium text-slate-600">
-                              Your catalogue is empty
-                            </p>
-                            <p className="text-sm text-slate-400">
-                              Click the "Add New Item" button to populate your
-                              store.
-                            </p>
-                          </div>
-                        </div>
+                      <td colSpan={5} className="px-4 py-6 text-center text-sm text-slate-500">
+                        No products found. Add a product to populate the catalogue.
                       </td>
                     </tr>
                   ) : (
-                    products.map((p) => (
-                      <tr
-                        key={p.id}
-                        className="group hover:bg-slate-50/80 transition-colors"
-                      >
-                        <td className="p-4">
-                          <div className="w-12 h-12 rounded-lg overflow-hidden border border-slate-200 bg-slate-100">
+                    // --- MAPPED PAGINATED PRODUCTS ---
+                    paginatedProducts.map((product) => (
+                      <tr key={product.id}>
+                        <td className="px-4 py-4 align-top">
+                          <div className="flex items-center gap-3">
                             <img
-                              src={p.image || FALLBACK_IMAGE}
-                              className="w-full h-full object-cover"
-                              alt={p.name}
+                              src={product.image || FALLBACK_IMAGE}
+                              alt={product.name}
+                              className="h-12 w-16 rounded-lg object-cover border border-slate-200"
+                              loading="lazy"
+                              onError={(e) => {
+                                e.currentTarget.src = FALLBACK_IMAGE;
+                              }}
                             />
+                            <div>
+                              <div className="font-medium text-slate-900">{product.name}</div>
+                              <div className="text-xs text-slate-500">{product.desc}</div>
+                            </div>
                           </div>
                         </td>
-                        <td className="p-4">
-                          <div className="font-bold text-slate-900">
-                            {p.name}
+                        <td className="px-4 py-4 align-top text-slate-700 capitalize">{product.category}</td>
+                        <td className="px-4 py-4 align-top text-slate-700">{product.price}</td>
+                        <td className="px-4 py-4 align-top text-slate-700">
+                          {Array.isArray(product.specs) ? product.specs.join(", ") : product.specs || ""}
+                        </td>
+                        <td className="px-4 py-4 align-top text-slate-700">
+                          <div className="flex items-center gap-2">
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => {
+                                setEditingProduct(product);
+                                setShowAddForm(true);
+                              }}
+                            >
+                              <Edit size={16} className="mr-2" /> Edit
+                            </Button>
+                            <Button
+                              variant="destructive"
+                              size="sm"
+                              className="bg-red-600 border-red-600 text-white hover:bg-red-700"
+                              onClick={() => {
+                                setDeleteProductId(product.id);
+                                setIsDeleteDialogOpen(true);
+                              }}
+                              disabled={deleteProductMutation.isPending}
+                            >
+                              <Trash2 size={16} className="mr-2" /> Delete
+                            </Button>
                           </div>
-                          <div className="text-[10px] text-slate-500 truncate max-w-[200px]">
-                            {Array.isArray(p.specs)
-                              ? p.specs.join(" • ")
-                              : p.specs}
-                          </div>
-                        </td>
-                        <td className="p-4 capitalize text-slate-600">
-                          {p.category}
-                        </td>
-                        <td className="p-4 font-semibold text-slate-700">
-                          {p.price}
-                        </td>
-                        <td className="p-4 text-right space-x-2">
-                          {/* EDIT MODAL */}
-
-                          <Dialog>
-                            <DialogTrigger asChild>
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                className="h-8 px-3 text-xs"
-                              >
-                                <Edit size={14} className="mr-1" /> Edit
-                              </Button>
-                            </DialogTrigger>
-                            <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-                              <DialogHeader>
-                                <DialogTitle>Update {p.name}</DialogTitle>
-                                <DialogDescription className="sr-only">
-                                  Modify the existing product details.
-                                </DialogDescription>
-                              </DialogHeader>
-                              <ProductAddForm
-                                initialData={p}
-                                onSubmit={
-                                  (v) =>
-                                    updateProductMutation.mutate(
-                                      {
-                                        id: p.id,
-                                        data: v,
-                                      },
-                                      { onSuccess: () => setOpenEditId(null) },
-                                    ) // Closes modal on success)
-                                }
-                                isPending={updateProductMutation.isPending}
-                              />
-                            </DialogContent>
-                          </Dialog>
-
-                          {/* DELETE BUTTON */}
-                          {/* CUSTOM DELETE CONFIRMATION DIALOG */}
-                          <AlertDialog>
-                            <AlertDialogTrigger asChild>
-                              <Button
-                                size="sm"
-                                variant="destructive"
-                                className="h-8 px-3 text-xs"
-                                disabled={deleteProductMutation.isPending}
-                              >
-                                {deleteProductMutation.isPending ? (
-                                  <Loader2 className="h-3 w-3 animate-spin" />
-                                ) : (
-                                  <>
-                                    <Trash2 size={14} className="mr-1" /> Delete
-                                  </>
-                                )}
-                              </Button>
-                            </AlertDialogTrigger>
-                            <AlertDialogContent>
-                              <AlertDialogHeader>
-                                <AlertDialogTitle className="flex items-center gap-2 text-destructive">
-                                  ⚠️ Are you absolutely sure?
-                                </AlertDialogTitle>
-                                <AlertDialogDescription>
-                                  This action cannot be undone. This will permanently remove{" "}
-                                  <strong className="text-slate-900">"{p.name}"</strong> and its
-                                  associated technical specs from the marketplace catalogue.
-                                </AlertDialogDescription>
-                              </AlertDialogHeader>
-                              <AlertDialogFooter>
-                                <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                <AlertDialogAction
-                                  className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                                  onClick={() => deleteProductMutation.mutate({ id: p.id, name: p.name })}
-                                >
-                                  Yes, Delete Product
-                                </AlertDialogAction>
-                              </AlertDialogFooter>
-                            </AlertDialogContent>
-                          </AlertDialog>
                         </td>
                       </tr>
                     ))
                   )}
                 </tbody>
               </table>
+
+              {/* --- PAGINATION INTERFACE BAR --- */}
+              {products.length > itemsPerPage && (
+                <div className="flex items-center justify-between px-4 py-3 bg-white border-t sm:px-6">
+                  <div className="flex justify-between flex-1 sm:hidden">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
+                      disabled={currentPage === 1}
+                    >
+                      Previous
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setCurrentPage((prev) => Math.min(prev + 1, totalPages))}
+                      disabled={currentPage === totalPages}
+                    >
+                      Next
+                    </Button>
+                  </div>
+                  <div className="hidden sm:flex sm:flex-1 sm:items-center sm:justify-between">
+                    <div>
+                      <p className="text-sm text-slate-700">
+                        Showing <span className="font-medium">{startIndex + 1}</span> to{" "}
+                        <span className="font-medium">
+                          {Math.min(endIndex, products.length)}
+                        </span>{" "}
+                        of <span className="font-medium">{products.length}</span> results
+                      </p>
+                    </div>
+                    <div className="flex gap-1">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
+                        disabled={currentPage === 1}
+                      >
+                        Previous
+                      </Button>
+                      
+                      {Array.from({ length: totalPages }, (_, i) => i + 1).map((pageNumber) => (
+                        <Button
+                          key={pageNumber}
+                          variant={currentPage === pageNumber ? "default" : "outline"}
+                          size="sm"
+                          className="w-9 h-9 p-0"
+                          onClick={() => setCurrentPage(pageNumber)}
+                        >
+                          {pageNumber}
+                        </Button>
+                      ))}
+
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setCurrentPage((prev) => Math.min(prev + 1, totalPages))}
+                        disabled={currentPage === totalPages}
+                      >
+                        Next
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
+
+            {/* --- FIX: ADDED THE ANIMATION TIMEOUT TO PREVENT LAYOUT SNAP ON MODAL CLOSING --- */}
+            <Dialog 
+              open={showAddForm} 
+              onOpenChange={(open) => {
+                setShowAddForm(open);
+                if (!open) {
+                  setTimeout(() => setEditingProduct(null), 300);
+                }
+              }}
+            >
+              <DialogContent className="w-full max-w-[calc(100vw-2rem)] sm:max-w-3xl sm:p-6 max-h-[calc(100vh-3rem)] overflow-y-auto">
+                <DialogHeader>
+                  <DialogTitle>{editingProduct ? "Edit Product" : "Add Product"}</DialogTitle>
+                  <DialogDescription>
+                    {editingProduct
+                      ? "Update the product details below and save to refresh the catalogue."
+                      : "Enter a new catalogue product and publish it to the marketplace."}
+                  </DialogDescription>
+                </DialogHeader>
+                <ProductAddForm
+                  onSubmit={handleProductSubmit}
+                  isPending={mutationsPending}
+                  initialData={editingProduct ?? undefined}
+                />
+              </DialogContent>
+            </Dialog>
+
+            <AlertDialog open={isDeleteDialogOpen} onOpenChange={(open) => {
+              if (!open) setDeleteProductId(null);
+              setIsDeleteDialogOpen(open);
+            }}>
+              <AlertDialogContent className="max-w-[28rem]">
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Delete product?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    This will permanently remove the product from your catalogue and the public product listing.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                  <AlertDialogAction asChild>
+                    <Button
+                      variant="destructive"
+                      className="w-full sm:w-auto bg-red-600 border-red-600 text-white hover:bg-red-700"
+                      onClick={() => {
+                        if (deleteProductId !== null) {
+                          deleteProductMutation.mutate({ id: deleteProductId });
+                        }
+                      }}
+                      disabled={deleteProductMutation.isPending}
+                    >
+                      {deleteProductMutation.isPending ? "Deleting..." : "Delete product"}
+                    </Button>
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
           </TabsContent>
         </Tabs>
       </div>
@@ -548,32 +607,19 @@ const deleteProductMutation = useMutation({
   );
 }
 
-// --- SUB-COMPONENTS ---
-
-function StatCard({
-  title,
-  value,
-  icon,
-  color,
-}: {
-  title: string;
-  value: any;
-  icon: any;
-  color: string;
-}) {
+function StatCard({ title, value, icon, color }: { title: string; value: any; icon: any; color: string }) {
   const colors: Record<string, string> = {
     primary: "border-l-primary",
     emerald: "border-l-emerald-500",
     indigo: "border-l-indigo-500",
     orange: "border-l-orange-500",
+    sky: "border-l-sky-500",
   };
   return (
     <Card className={`border-l-4 ${colors[color]} shadow-sm`}>
       <CardContent className="pt-6">
         <div className="flex items-center justify-between mb-2">
-          <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">
-            {title}
-          </span>
+          <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">{title}</span>
           {icon}
         </div>
         <div className="text-2xl font-black">{value}</div>
@@ -586,42 +632,65 @@ function ProductAddForm({
   onSubmit,
   isPending,
   initialData,
-  onSuccess,
 }: {
   onSubmit: (v: ProductFormValues) => void;
   isPending: boolean;
   initialData?: Product;
-  onSuccess?: () => void;
 }) {
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const [preview, setPreview] = useState<string | null>(
-    initialData?.image || null,
-  );
+  const [preview, setPreview] = useState<string | null>(null);
 
   const form = useForm<ProductFormValues>({
     resolver: zodResolver(productSchema),
     defaultValues: {
-      name: initialData?.name || "",
-      price: initialData?.price || "",
-      image: initialData?.image || "",
-      desc: initialData?.desc || "",
-      specs: Array.isArray(initialData?.specs)
-        ? initialData.specs.join(", ")
-        : (initialData?.specs as any) || "",
-      category: (initialData?.category as any) || "avocado",
+      name: "",
+      price: "",
+      image: "",
+      desc: "",
+      specs: "",
+      category: "avocado",
     },
   });
 
-  // Handle actual submission
+ useEffect(() => {
+  if (initialData) {
+    // 1. Safe extraction and normalization of category string
+    const rawCategory = initialData.category?.toLowerCase()?.trim();
+    const sanitizedCategory = (rawCategory === "macadamia" || rawCategory === "avocado") 
+      ? rawCategory 
+      : "avocado"; // strict fallback if it's completely missing or wrong
+
+    form.reset({
+      name: initialData.name || "",
+      price: initialData.price || "",
+      image: initialData.image || "",
+      desc: initialData.desc || "",
+      specs: Array.isArray(initialData.specs)
+        ? initialData.specs.join(", ")
+        : (initialData.specs as any) || "",
+      category: sanitizedCategory, // 2. Use the clean, verified string here
+    });
+    setPreview(initialData.image || null);
+  } else {
+    form.reset({
+      name: "",
+      price: "",
+      image: "",
+      desc: "",
+      specs: "",
+      category: "avocado",
+    });
+    setPreview(null);
+  }
+}, [initialData, form]);
+
   const handleInternalSubmit = (data: ProductFormValues) => {
     onSubmit(data);
-    if (onSuccess) onSuccess(); // Closes the modal
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      // 2MB Limit Check
       if (file.size > 2 * 1024 * 1024) {
         toast({
           title: "File too large",
@@ -642,12 +711,7 @@ function ProductAddForm({
 
   return (
     <Form {...form}>
-      {/* CRITICAL: Ensure form.handleSubmit(handleInternalSubmit) is here */}
-      <form
-        onSubmit={form.handleSubmit(handleInternalSubmit)}
-        className="space-y-4"
-      >
-        {/* IMAGE UPLOAD SECTION */}
+      <form onSubmit={form.handleSubmit(handleInternalSubmit)} className="space-y-4">
         <FormField
           control={form.control}
           name="image"
@@ -660,13 +724,11 @@ function ProductAddForm({
                   className={`border-2 border-dashed rounded-xl h-40 flex flex-col items-center justify-center cursor-pointer transition-all overflow-hidden relative ${form.formState.errors.image ? "border-destructive bg-destructive/5" : "hover:bg-slate-50"}`}
                 >
                   {preview ? (
-                    <img src={preview} className="w-full h-full object-cover" />
+                    <img src={preview} className="w-full h-full object-cover" alt="Preview" />
                   ) : (
                     <div className="text-center">
                       <Plus className="mx-auto text-slate-400 mb-2" />
-                      <p className="text-xs text-slate-500">
-                        Click to upload image
-                      </p>
+                      <p className="text-xs text-slate-500">Click to upload image</p>
                     </div>
                   )}
                 </div>
@@ -683,7 +745,6 @@ function ProductAddForm({
           )}
         />
 
-        {/* PRODUCT NAME */}
         <FormField
           control={form.control}
           name="name"
@@ -718,13 +779,10 @@ function ProductAddForm({
             render={({ field }) => (
               <FormItem>
                 <FormLabel>Category</FormLabel>
-                <Select
-                  onValueChange={field.onChange}
-                  defaultValue={field.value}
-                >
+                <Select onValueChange={field.onChange} value={field.value}>
                   <FormControl>
                     <SelectTrigger>
-                      <SelectValue />
+                      <SelectValue placeholder="Select category" />
                     </SelectTrigger>
                   </FormControl>
                   <SelectContent>

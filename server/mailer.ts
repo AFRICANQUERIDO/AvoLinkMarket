@@ -1,9 +1,22 @@
 import { Resend } from 'resend';
 import type { Enquiry } from '@shared/schema';
+import { storage } from './storage';
 
 // Initialize Resend with your API Key
 const resend = new Resend(process.env.RESEND_API_KEY);
 
+function getQuantityLabel(rawQuantity: string | number | null | undefined) {
+  const value = String(rawQuantity || '').trim();
+
+  const quantityMap: Record<string, string> = {
+    tier_1: '500kg to 1 Container',
+    tier_2: '2 - 4 Containers',
+    tier_3: '5+ Containers',
+  };
+
+  if (!value) return 'Not specified';
+  return quantityMap[value] || value;
+}
 
 export async function sendLeadNotification(enquiry: Enquiry) {
   try {
@@ -21,14 +34,31 @@ export async function sendLeadNotification(enquiry: Enquiry) {
     // 💡 Translation Helper: Converts raw technical Select IDs into human-readable email labels
     let productLabel = "General Enquiry";
     if (type === 'buyer') {
-      if (rawProduct === "1") productLabel = "Fresh Hass Avocados";
-      else if (rawProduct === "2") productLabel = "Crude Avocado Oil";
-      else if (rawProduct === "3") productLabel = "Macadamia Nuts (Style 0)";
-      else if (rawProduct) productLabel = `Product (ID: ${rawProduct})`; 
-      else productLabel = "Unspecified Product Interest";
+      const productId = typeof rawProduct === 'string' ? rawProduct.trim() : String(rawProduct || '');
+
+      if (productId) {
+        const products = await storage.getProducts();
+        const selectedProduct = products.find((product) => product.id.toString() === productId);
+
+        if (selectedProduct?.name) {
+          productLabel = selectedProduct.name;
+        } else if (productId === "1") {
+          productLabel = "Fresh Hass Avocados";
+        } else if (productId === "2") {
+          productLabel = "Crude Avocado Oil";
+        } else if (productId === "3") {
+          productLabel = "Macadamia Nuts (Style 0)";
+        } else {
+          productLabel = `Product (ID: ${productId})`;
+        }
+      } else {
+        productLabel = "Unspecified Product Interest";
+      }
     } else {
       productLabel = "Supplier Partnership Capacity Application";
     }
+
+    const quantityLabel = type === 'buyer' ? getQuantityLabel(quantity) : '';
 
     const { data, error } = await resend.emails.send({
       // Unified brand name signature matching global layout guidelines
@@ -62,10 +92,10 @@ export async function sendLeadNotification(enquiry: Enquiry) {
               <td style="padding: 8px 0; font-weight: 600; color: #475569;">Core Interest:</td>
               <td style="padding: 8px 0; color: #0f172a; font-weight: 600;">${productLabel}</td>
             </tr>
-            ${type === 'buyer' && quantity ? `
+            ${type === 'buyer' && quantityLabel ? `
             <tr>
               <td style="padding: 8px 0; font-weight: 600; color: #475569;">Est. Quantity:</td>
-              <td style="padding: 8px 0; color: #0f172a;">${quantity}</td>
+              <td style="padding: 8px 0; color: #0f172a;">${quantityLabel}</td>
             </tr>
             ` : ''}
           </table>

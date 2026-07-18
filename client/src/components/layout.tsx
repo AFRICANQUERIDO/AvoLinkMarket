@@ -63,10 +63,8 @@ export function Layout({ children }: { children: React.ReactNode }) {
           transition={{ repeat: Infinity, duration: 30, ease: "linear" }}
           className="inline-block"
         >
-          AVO OIL (CRUDE): €3.85/KG ▲ 1.2% | AVO OIL (EXTRA VIRGIN): €9.20/KG ▲
-          0.5% | AVO OIL (REFINED): €5.10/KG ▼ 0.1% | EUROPEAN DEMAND: HIGH |
-          NEXT SHIPMENT: ROTTERDAM 12/12
-        </motion.div>
+          AVO OIL (CRUDE): $4.25/KG ▲ 1.2% | AVO OIL (EXTRA VIRGIN): $10.15/KG ▲ 0.5% | AVO OIL (REFINED): $5.35/KG ▲ 0.8%
+          </motion.div>
       </div>
 
       {/* Navigation */}

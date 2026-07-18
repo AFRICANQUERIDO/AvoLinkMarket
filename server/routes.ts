@@ -124,20 +124,38 @@ export async function registerRoutes(httpServer: Server, app: Express) {
 
   // --- ANALYTICS ---
   // 🌐 Public: Tracks standard metrics when users land on components
-  app.post("/api/analytics/visit", async (req, res) => {
-    const { path } = req.body;
-    if (path) {
-      await storage.trackPageVisit({ path });
-    }
-    res.sendStatus(204);
-  });
+app.get("/api/analytics/stats", requireAdmin, async (req, res) => {
+  const days = parseInt(req.query.days as string) || 7;
+  const stats = await storage.getVisitStats(days); // This function exists in your storage
+  res.json(stats);
+});
 
   // 🔒 Added requireAdmin guard so only you can inspect metrics
-  app.get("/api/analytics/stats", requireAdmin, async (req, res) => {
-    const days = parseInt(req.query.days as string) || 7;
-    const stats = await storage.getVisitStats(days);
-    res.json(stats);
-  });
+app.post("/api/analytics/visit", async (req, res) => {
+  try {
+    const { path, userAgent } = req.body;
+    if (path) {
+      await storage.trackPageVisit({ path, userAgent });
+    }
+    res.sendStatus(204);
+  } catch (error) {
+    console.error("🚨 DATABASE WRITE ERROR:", error);
+    res.status(500).json({ error: "Failed to save visit" });
+  }
+});
+
+app.post("/api/track-visit", async (req, res) => {
+  try {
+    const { path, userAgent } = req.body;
+    if (path) {
+      await storage.trackPageVisit({ path, userAgent });
+    }
+    res.sendStatus(204);
+  } catch (error) {
+    console.error("🚨 DATABASE WRITE ERROR:", error);
+    res.status(500).json({ error: "Failed to save visit" });
+  }
+});
 
   // --- ADMINISTRATIVE AUTHENTICATION CONTROL ---
   

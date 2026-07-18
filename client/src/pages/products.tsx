@@ -13,6 +13,7 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Loader2, CheckCircle, ArrowLeft, SearchX } from "lucide-react";
 import { useSearch } from "@/hooks/use-search";
 import { useQuery } from "@tanstack/react-query";
+import type { Product } from "@shared/schema";
 
 // --- Form Schemas ---
 const buyerSchema = z.object({
@@ -36,15 +37,24 @@ const sellerSchema = z.object({
 const formSchema = z.discriminatedUnion("type", [buyerSchema, sellerSchema]);
 
 export default function Products() {
-  const { query, setQuery } = useSearch();
+  const { query } = useSearch();
   const { toast } = useToast();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [activeTab, setActiveTab] = useState<"buyer" | "seller">("buyer");
+  const [showMoreAvocado, setShowMoreAvocado] = useState(false);
+  const [showMoreMacadamia, setShowMoreMacadamia] = useState(false);
   const [, setLocation] = useLocation();
 
   // 1. Fetching data from MSSQL via our API
-  const { data: products = [], isLoading } = useQuery({
+  const { data: products = [], isLoading } = useQuery<Product[]>({
     queryKey: ['/api/products'],
+    queryFn: async () => {
+      const res = await fetch('/api/products');
+      if (!res.ok) {
+        throw new Error('Failed to load products');
+      }
+      return res.json();
+    },
   });
 
   const queryParams = new URLSearchParams(window.location.search);
@@ -63,43 +73,45 @@ export default function Products() {
 
   const avocadoProducts = filteredProducts.filter((p: any) => p.category === 'avocado');
   const macadamiaProducts = filteredProducts.filter((p: any) => p.category === 'macadamia');
+  const avocadoDisplayProducts = showMoreAvocado ? avocadoProducts : avocadoProducts.slice(0, 4);
+  const macadamiaDisplayProducts = showMoreMacadamia ? macadamiaProducts : macadamiaProducts.slice(0, 4);
 
   // 🎯 Scroll to form anchor hash when navigating from another page
-useEffect(() => {
-  // ONLY scroll down if the URL specifically ends in #enquiry-form
-  if (window.location.hash === "#enquiry-form") {
-    const timer = setTimeout(() => {
-      const targetElement = document.getElementById("enquiry-form");
-      if (targetElement) {
-        targetElement.scrollIntoView({ behavior: "smooth", block: "start" });
-      }
-    }, 150);
-    return () => clearTimeout(timer);
-  }
-}, []);
+  useEffect(() => {
+    // ONLY scroll down if the URL specifically ends in #enquiry-form
+    if (window.location.hash === "#enquiry-form") {
+      const timer = setTimeout(() => {
+        const targetElement = document.getElementById("enquiry-form");
+        if (targetElement) {
+          targetElement.scrollIntoView({ behavior: "smooth", block: "start" });
+        }
+      }, 150);
+      return () => clearTimeout(timer);
+    }
+  }, []);
 
   // 🎯 Updated Scroll Tracker: Safely fires ONLY after items stop loading
- useEffect(() => {
-  if (categoryFilter && !isLoading) {
-    // 1. Wait a brief frame for the DOM layout to settle its heights
-    const frameTimer = requestAnimationFrame(() => {
-      // 2. Introduce a minor delay so the user registers they changed pages
-      const scrollTimer = setTimeout(() => {
-        const element = document.getElementById(`${categoryFilter}-section`);
-        if (element) {
-          element.scrollIntoView({ 
-            behavior: 'smooth', 
-            block: 'start' 
-          });
-        }
-      }, 200); // 200ms gives a perfect visual pause before sliding
+  useEffect(() => {
+    if (categoryFilter && !isLoading) {
+      // 1. Wait a brief frame for the DOM layout to settle its heights
+      const frameTimer = requestAnimationFrame(() => {
+        // 2. Introduce a minor delay so the user registers they changed pages
+        const scrollTimer = setTimeout(() => {
+          const element = document.getElementById(`${categoryFilter}-section`);
+          if (element) {
+            element.scrollIntoView({
+              behavior: 'smooth',
+              block: 'start'
+            });
+          }
+        }, 200); // 200ms gives a perfect visual pause before sliding
 
-      return () => clearTimeout(scrollTimer);
-    });
+        return () => clearTimeout(scrollTimer);
+      });
 
-    return () => cancelAnimationFrame(frameTimer);
-  }
-}, [categoryFilter, isLoading]);
+      return () => cancelAnimationFrame(frameTimer);
+    }
+  }, [categoryFilter, isLoading]);
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -114,23 +126,55 @@ useEffect(() => {
     },
   });
 
-  async function onSubmit(values: z.infer<typeof formSchema>) {
-    setIsSubmitting(true);
-    try {
-      const response = await fetch('/api/enquiries', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(values),
-      });
-      if (!response.ok) throw new Error('Failed to submit');
-      toast({ title: "Enquiry Sent Successfully! ✅" });
-      form.reset({ type: activeTab, name: "", company: "", email: "", product: "", quantity: "", message: "" });
-    } catch (error) {
-      toast({ title: "Submission Failed", variant: "destructive" });
-    } finally {
-      setIsSubmitting(false);
+ async function onSubmit(values: z.infer<typeof formSchema>) {
+  setIsSubmitting(true);
+  try {
+    // Clone values so we don't mutate the UI state mid-flight
+    let submissionPayload: any = { ...values };
+
+    // If it's a buyer, enrich the payload with the actual product data 
+    // instead of just sending an isolated ID string
+    if (values.type === "buyer" && values.product) {
+      const selectedProductObject = products.find(
+        (p: any) => p.id.toString() === values.product
+      );
+
+      submissionPayload = {
+        ...submissionPayload,
+        // Replace the plain ID string with full, safe structured context
+        productDetails: selectedProductObject ? {
+          id: selectedProductObject.id,
+          name: selectedProductObject.name,
+          category: selectedProductObject.category,
+          price: selectedProductObject.price
+        } : null
+      };
     }
+
+    const response = await fetch('/api/enquiries', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(submissionPayload), // Send the enriched payload
+    });
+
+    if (!response.ok) throw new Error('Failed to submit');
+    
+    toast({ title: "Enquiry Sent Successfully! ✅" });
+    form.reset({ 
+      type: activeTab, 
+      name: "", 
+      company: "", 
+      email: "", 
+      product: "", 
+      quantity: "", 
+      message: "" 
+    });
+  } catch (error) {
+    toast({ title: "Submission Failed", variant: "destructive" });
+  } finally {
+    setIsSubmitting(false);
   }
+}
 
   return (
     <div className="bg-background py-16 min-h-screen">
@@ -179,24 +223,50 @@ useEffect(() => {
         {/* Avocado Section */}
         {(!categoryFilter || categoryFilter === 'avocado') && avocadoProducts.length > 0 && (
           <div id="avocado-section" className="mb-20 scroll-mt-24 transition-opacity">
-            <h2 className="font-heading text-3xl font-bold text-primary mb-8 border-l-4 border-secondary pl-4">Avocado Products</h2>
+            <h2 className="font-heading text-3xl font-bold text-primary mb-2 border-l-4 border-secondary pl-4">Avocado Products</h2>
+            <p className="text-sm text-muted-foreground mb-6">
+              Showing {avocadoDisplayProducts.length} of {avocadoProducts.length} avocado products
+            </p>
             <div className="grid lg:grid-cols-2 xl:grid-cols-4 gap-8">
-              {avocadoProducts.map((product) => (
+              {avocadoDisplayProducts.map((product) => (
                 <ProductCard key={product.id} product={product} form={form} />
               ))}
             </div>
+            {avocadoProducts.length > 4 && (
+              <div className="mt-8 flex justify-center">
+                <Button
+                  variant="outline"
+                  onClick={() => setShowMoreAvocado((prev) => !prev)}
+                >
+                  {showMoreAvocado ? "Show less" : `View all ${avocadoProducts.length} avocados`}
+                </Button>
+              </div>
+            )}
           </div>
         )}
 
         {/* Macadamia Section */}
         {(!categoryFilter || categoryFilter === 'macadamia') && macadamiaProducts.length > 0 && (
           <div id="macadamia-section" className="mb-20 scroll-mt-24 transition-opacity">
-            <h2 className="font-heading text-3xl font-bold text-primary mb-8 border-l-4 border-amber-500 pl-4">Macadamia Products</h2>
+            <h2 className="font-heading text-3xl font-bold text-primary mb-2 border-l-4 border-amber-500 pl-4">Macadamia Products</h2>
+            <p className="text-sm text-muted-foreground mb-6">
+              Showing {macadamiaDisplayProducts.length} of {macadamiaProducts.length} macadamia products
+            </p>
             <div className="grid lg:grid-cols-2 xl:grid-cols-4 gap-8">
-              {macadamiaProducts.map((product) => (
+              {macadamiaDisplayProducts.map((product) => (
                 <ProductCard key={product.id} product={product} form={form} />
               ))}
             </div>
+            {macadamiaProducts.length > 4 && (
+              <div className="mt-8 flex justify-center">
+                <Button
+                  variant="outline"
+                  onClick={() => setShowMoreMacadamia((prev) => !prev)}
+                >
+                  {showMoreMacadamia ? "Show less" : `View all ${macadamiaProducts.length} macadamia`}
+                </Button>
+              </div>
+            )}
           </div>
         )}
 
@@ -281,20 +351,29 @@ useEffect(() => {
                           );
                         }}
                       />
-                      <FormField control={form.control} name="quantity" render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Est. Quantity</FormLabel>
-                          <Select onValueChange={field.onChange} value={field.value}>
-                            <FormControl><SelectTrigger><SelectValue placeholder="Select quantity" /></SelectTrigger></FormControl>
-                            <SelectContent>
-                              <SelectItem value="Sample (< 5kg)">Sample (&lt; 5kg)</SelectItem>
-                              <SelectItem value="Small (100kg - 1 Ton)">Small (100kg - 1 Ton)</SelectItem>
-                              <SelectItem value="Large (10 Tons+)">Large (10 Tons+)</SelectItem>
-                            </SelectContent>
-                          </Select>
-                          <FormMessage />
-                        </FormItem>
-                      )} />
+                      <FormField
+                        control={form.control}
+                        name="quantity"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Est. Quantity</FormLabel>
+                            {/* We use field.onChange to update the form state */}
+                            <Select onValueChange={field.onChange} value={field.value}>
+                              <FormControl>
+                                <SelectTrigger className="w-full">
+                                  <SelectValue placeholder="Select order volume..." />
+                                </SelectTrigger>
+                              </FormControl>
+                              <SelectContent>
+                                <SelectItem value="tier_1">500kg to 1 Container</SelectItem>
+                                <SelectItem value="tier_2">2 - 4 Containers</SelectItem>
+                                <SelectItem value="tier_3">5+ Containers</SelectItem>
+                              </SelectContent>
+                            </Select>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
                     </div>
                   )}
                   <FormField control={form.control} name="message" render={({ field }) => (
@@ -331,10 +410,10 @@ function ProductCard({ product, form }: { product: any, form: any }) {
             {product.badge}
           </span>
         )}
-        
+
         {product.image ? (
-          <img 
-            src={product.image} 
+          <img
+            src={product.image}
             alt={product.name}
             className="absolute inset-0 w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
             onError={(e) => {
@@ -352,7 +431,7 @@ function ProductCard({ product, form }: { product: any, form: any }) {
         <h3 className="font-heading text-xl font-bold text-primary mb-2 line-clamp-1">{product.name}</h3>
         <p className="text-lg font-bold text-secondary mb-4">{product.price}</p>
         <p className="text-muted-foreground text-sm mb-6 flex-grow line-clamp-3">{product.desc}</p>
-        
+
         <div className="space-y-2 mb-6">
           {product.specs?.map((spec: string, i: number) => (
             <div key={i} className="flex items-center gap-2 text-xs font-medium text-slate-600">
@@ -360,8 +439,8 @@ function ProductCard({ product, form }: { product: any, form: any }) {
             </div>
           ))}
         </div>
-        
-        <Button 
+
+        <Button
           variant="outline"
           className="w-full border-primary text-primary hover:bg-primary hover:text-white"
           onClick={() => {

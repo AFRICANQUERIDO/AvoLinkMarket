@@ -11,7 +11,11 @@ export interface IStorage {
 
   // Analytics
   trackPageVisit(visit: { path: string }): Promise<void>;
-  getVisitStats(days?: number): Promise<{ totalVisits: number; totalEnquiries: number }>;
+  getVisitStats(days?: number): Promise<{
+    totalVisits: number;
+    totalEnquiries: number;
+    dailyVisits: { date: string; count: number }[];
+  }>;
 
   // Product Catalogue
   getProducts(): Promise<Product[]>;
@@ -80,34 +84,67 @@ export class DatabaseStoragePostgres implements IStorage {
   }
 
   // --- Analytics Methods ---
-  async trackPageVisit(visit: { path: string }) {
+async trackPageVisit(visit: { path: string; userAgent?: string }) {
+  try {
     await pool.query(
-      `INSERT INTO page_visits (path, timestamp) VALUES ($1, NOW())`,
-      [visit.path]
+      `INSERT INTO page_visits (path, timestamp, user_agent) VALUES ($1, CURRENT_TIMESTAMP AT TIME ZONE 'UTC', $2)`,
+      [visit.path, visit.userAgent || null]
     );
+  } catch (err) {
+    console.error("🚨 DATABASE INSERT FAILED:", err);
   }
+}
 
-  async getVisitStats(days = 7) {
-    const visitsQuery = `
-      SELECT COUNT(*) AS "totalVisits" 
-      FROM page_visits 
-      WHERE timestamp >= NOW() - ($1 * INTERVAL '1 day');
-    `;
-    const enquiriesQuery = `
-      SELECT COUNT(*) AS "totalEnquiries" 
-      FROM enquiries 
-      WHERE created_at >= NOW() - ($1 * INTERVAL '1 day');
-    `;
+async getVisitStats(days = 7) {
+  // Total visitors should reflect the full tracked count for the dashboard card.
+  const visitsQuery = `
+    SELECT COUNT(*)::int AS "totalVisits"
+    FROM page_visits;
+  `;
 
-    const resultVisits = await pool.query(visitsQuery, [days]);
-    const resultEnquiries = await pool.query(enquiriesQuery, [days]);
+  const enquiriesQuery = `
+    SELECT COUNT(*)::int AS "totalEnquiries"
+    FROM enquiries;
+  `;
 
+  const dailyVisitsQuery = `
+    SELECT TO_CHAR(DATE(timestamp), 'YYYY-MM-DD') AS "date", COUNT(*)::int AS "count"
+    FROM page_visits
+    WHERE timestamp >= CURRENT_DATE - ($1::int - 1) * INTERVAL '1 day'
+    GROUP BY DATE(timestamp)
+    ORDER BY DATE(timestamp) ASC;
+  `;
+
+  const resultVisits = await pool.query(visitsQuery);
+  const resultEnquiries = await pool.query(enquiriesQuery);
+  const resultDaily = await pool.query(dailyVisitsQuery, [days]);
+
+  const totalVisits = resultVisits.rows[0].totalVisits || 0;
+  const totalEnquiries = resultEnquiries.rows[0].totalEnquiries || 0;
+
+  const visitCountsByDate = Object.fromEntries(
+    resultDaily.rows.map((row: { date: string; count: number }) => [row.date, row.count])
+  );
+
+  const utcToday = new Date();
+  const dailyVisits = Array.from({ length: days }, (_, index) => {
+    const date = new Date(Date.UTC(utcToday.getUTCFullYear(), utcToday.getUTCMonth(), utcToday.getUTCDate()));
+    date.setUTCDate(date.getUTCDate() - (days - 1 - index));
+    const dateKey = date.toISOString().slice(0, 10);
     return {
-      totalVisits: parseInt(resultVisits.rows[0].totalVisits) || 0,
-      totalEnquiries: parseInt(resultEnquiries.rows[0].totalEnquiries) || 0,
+      date: dateKey,
+      count: visitCountsByDate[dateKey] ?? 0,
     };
-  }
+  });
 
+  console.log(`🔍 Stats fetched: ${totalVisits} visits, ${totalEnquiries} enquiries.`);
+
+  return {
+    totalVisits,
+    totalEnquiries,
+    dailyVisits,
+  };
+}
   // --- Product Catalogue Methods ---
   async getProducts(): Promise<Product[]> {
     const query = `
@@ -151,42 +188,45 @@ export class DatabaseStoragePostgres implements IStorage {
     };
   }
 
-  async updateProduct(id: number, data: Partial<InsertProduct>): Promise<Product> {
-    const specsJson = data.specs ? JSON.stringify(data.specs) : null;
-    
-    const query = `
-      UPDATE products 
-      SET 
-        name = COALESCE($1, name),
-        price = COALESCE($2, price),
-        image = COALESCE($3, image),
-        description = COALESCE($4, description),
-        specs = COALESCE($5, specs),
-        category = COALESCE($6, category)
-      WHERE id = $7
-      RETURNING id, slug, name, price, description as desc, specs, badge, category, image;
-    `;
+ async updateProduct(id: number, data: Partial<InsertProduct>): Promise<Product> {
+  const specsJson = data.specs ? JSON.stringify(data.specs) : null;
+  
+  // FIX: Changed "desc" to "description" in the SET clause to match your DB schema
+  const query = `
+    UPDATE products 
+    SET 
+      slug = COALESCE($1, slug),
+      name = COALESCE($2, name),
+      price = COALESCE($3, price),
+      image = COALESCE($4, image),
+      description = COALESCE($5, description),
+      specs = COALESCE($6, specs),
+      category = COALESCE($7, category)
+    WHERE id = $8
+    RETURNING id, slug, name, price, description as desc, specs, badge, category, image;
+  `;
 
-    const values = [
-      data.name || null,
-      data.price || null,
-      data.image || null,
-      data.desc || null,
-      specsJson,
-      data.category || null,
-      id
-    ];
+  const values = [
+    data.slug || null,
+    data.name || null,
+    data.price || null,
+    data.image || null,
+    data.desc || null, // Matches the incoming property name from your form
+    specsJson,
+    data.category || null,
+    id
+  ];
 
-    const result = await pool.query(query, values);
+  const result = await pool.query(query, values);
 
-    if (result.rows.length === 0) throw new Error("Product not found");
-    
-    const p = result.rows[0];
-    return { 
-      ...p, 
-      specs: typeof p.specs === 'string' ? JSON.parse(p.specs) : p.specs 
-    };
-  }
+  if (result.rows.length === 0) throw new Error("Product not found");
+  
+  const p = result.rows[0];
+  return { 
+    ...p, 
+    specs: typeof p.specs === 'string' ? JSON.parse(p.specs) : p.specs 
+  };
+}
 
   async deleteProduct(id: number): Promise<void> {
     await pool.query(`DELETE FROM products WHERE id = $1`, [id]);

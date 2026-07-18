@@ -8,54 +8,38 @@ import Home from "@/pages/home";
 import Products from "@/pages/products";
 import Market from "@/pages/market";
 import Admin from "@/pages/admin";
+import Login from "./pages/login";
 import { Layout } from "@/components/layout";
 import { usePageTracking } from "@/hooks/use-page-tracking";
-import Login from "./pages/login";
-import { ProtectedRoute } from "./components/protected-routes"
+import { ProtectedRoute } from "./components/protected-routes";
 
 function Router() {
+  // Use the tracking hook inside a proper component
   usePageTracking();
   
   return (
     <Switch>
-      {/* 🔒 Auth Pages (Completely clean, no client website navigation layout) */}
+      {/* 🔒 Auth Pages */}
       <Route path="/login" component={Login} />
       <ProtectedRoute path="/admin" component={Admin} />
 
-      {/* 🌐 Public Website Routes wrapped in your public Layout */}
+      {/* 🌐 Public Website Routes */}
       <Route path="/">
-        {() => (
-          <Layout>
-            <Home />
-          </Layout>
-        )}
+        {() => <Layout><Home /></Layout>}
       </Route>
       <Route path="/products">
-        {() => (
-          <Layout>
-            <Products />
-          </Layout>
-        )}
+        {() => <Layout><Products /></Layout>}
       </Route>
       <Route path="/market">
-        {() => (
-          <Layout>
-            <Market key={window.location.search} />
-          </Layout>
-        )}
+        {() => <Layout><Market /></Layout>}
       </Route>
 
       {/* 🚫 Fallback 404 */}
-      <Route>
-        {() => (
-          <Layout>
-            <NotFound />
-          </Layout>
-        )}
-      </Route>
+      <Route component={NotFound} />
     </Switch>
   );
 }
+
 function App() {
   return (
     <QueryClientProvider client={queryClient}>
