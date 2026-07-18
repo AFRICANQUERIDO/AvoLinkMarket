@@ -1,24 +1,31 @@
 import "dotenv/config";
 import express, { type Request, Response, NextFunction } from "express";
-import session from "express-session"; // 🚀 Imported session manager
+import session from "express-session"; 
+import cors from "cors"; // 1. 👈 ADD THIS IMPORT HERE
 import { registerRoutes } from "./routes";
 import { serveStatic } from "./static";
 import { createServer } from "http";
 
 const app = express();
 
-// 🔒 Configure & Activate Session Storage Middleware
-// This intercepts requests and assigns secure, tracking cookies automatically
 app.use(
   session({
     secret: process.env.SESSION_SECRET || "avolink-global-fallback-secret-key-123!",
     resave: false,
     saveUninitialized: false,
     cookie: {
-      httpOnly: true, // Prevents client-side scripts from reading the cookie header
-      secure: process.env.NODE_ENV === "production", // Forces HTTPS when deployed live
-      maxAge: 24 * 60 * 60 * 1000, // Valid for exactly 24 hours
+      httpOnly: true, 
+      secure: process.env.NODE_ENV === "production", 
+      maxAge: 24 * 60 * 60 * 1000, 
     },
+  })
+);
+
+// 2. 👈 ADD THE CORS MIDDLEWARE RIGHT HERE
+app.use(
+  cors({
+    origin: true, // Dynamically allows the origin making the request (great for Vite development)
+    credentials: true, // Allows cookies/sessions to pass through successfully
   })
 );
 
