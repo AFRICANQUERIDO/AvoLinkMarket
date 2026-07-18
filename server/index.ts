@@ -8,6 +8,8 @@ import { createServer } from "http";
 
 const app = express();
 
+app.set("trust proxy", 1);
+
 app.use(
   session({
     secret: process.env.SESSION_SECRET || "avolink-global-fallback-secret-key-123!",
